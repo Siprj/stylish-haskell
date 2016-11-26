@@ -110,10 +110,10 @@ compareImportSpecs :: H.ImportSpec l -> H.ImportSpec l -> Ordering
 compareImportSpecs = comparing key
   where
     key :: H.ImportSpec l -> (Int, Bool, String)
-    key (H.IVar _ x)         = (1, isOperator x, nameToString x)
-    key (H.IAbs _ _ x)       = (0, False, nameToString x)
-    key (H.IThingAll _ x)    = (0, False, nameToString x)
-    key (H.IThingWith _ x _) = (0, False, nameToString x)
+    key (H.IVar _ x)         = (1, not $ isOperator x, nameToString x)
+    key (H.IAbs _ _ x)       = (0, True, nameToString x)
+    key (H.IThingAll _ x)    = (0, True, nameToString x)
+    key (H.IThingWith _ x _) = (0, True, nameToString x)
 
 
 --------------------------------------------------------------------------------
@@ -132,8 +132,8 @@ compareImportSubSpecs :: H.CName l -> H.CName l -> Ordering
 compareImportSubSpecs = comparing key
   where
     key :: H.CName l -> (Int, Bool, String)
-    key (H.ConName _ x) = (0, False,        nameToString x)
-    key (H.VarName _ x) = (1, isOperator x, nameToString x)
+    key (H.ConName _ x) = (0, True,        nameToString x)
+    key (H.VarName _ x) = (1, not $ isOperator x, nameToString x)
 
 
 --------------------------------------------------------------------------------
@@ -146,23 +146,34 @@ compareImportSubSpecs = comparing key
 -- > import Foo (Bar (..))
 --
 -- instead.
-prettyImportSpec :: (Ord l) => Bool -> H.ImportSpec l -> String
-prettyImportSpec separate = prettyImportSpec'
+prettyImportSpec :: (Ord l) => Int -> Bool -> Bool -> H.ImportSpec l -> String
+prettyImportSpec padding multiline separate = prettyImportSpec'
   where
     prettyImportSpec' (H.IThingAll  _ n)     = H.prettyPrint n ++ sep "(..)"
-    prettyImportSpec' (H.IThingWith _ n cns) = H.prettyPrint n
-        ++ sep "("
-        ++ intercalate ", "
-          (map H.prettyPrint $ sortBy compareImportSubSpecs cns)
-        ++ ")"
+    prettyImportSpec' (H.IThingWith _ n cns) =
+        if multiline then prittyMultiLine n cns else prittyLine n cns
     prettyImportSpec' x                      = H.prettyPrint x
 
     sep = if separate then (' ' :) else id
 
+    prittyLine n cns = H.prettyPrint n
+        ++ sep "("
+        ++ intercalate ", "
+          (map H.prettyPrint $ sortBy compareImportSubSpecs cns)
+        ++ ")"
+
+    prittyMultiLine n cns = H.prettyPrint n
+        ++ "\n" ++ paddingString ++ "( "
+        ++ intercalate ("\n" ++ paddingString ++ ", ")
+          (map H.prettyPrint $ sortBy compareImportSubSpecs cns)
+        ++ "\n" ++ paddingString ++ ")"
+    paddingString = replicate padding ' '
+
+
 
 --------------------------------------------------------------------------------
 prettyImport :: (Ord l, Show l) =>
-    Int -> Options -> Bool -> Bool -> Int -> H.ImportDecl l -> [String]
+    Int -> Options -> Bool -> Bool -> Int -> H.ImportDecl l -> Lines
 prettyImport columns Options{..} padQualified padName longest imp
     | (void `fmap` H.importSpecs imp) == emptyImportSpec = emptyWrap
     | otherwise = case longListAlign of
@@ -190,7 +201,7 @@ prettyImport columns Options{..} padQualified padName longest imp
         RightAfter -> [paddedNoSpecBase ++ " ()"]
 
     inlineWrap = inlineWrapper
-        $ mapSpecs
+        $ mapSpecs 0 False
         $ withInit (++ ",")
         . withHead ("(" ++)
         . withLast (++ ")")
@@ -203,7 +214,7 @@ prettyImport columns Options{..} padQualified padName longest imp
             . wrap columns paddedBase (afterAliasBaseLength + 1)
 
     inlineWithBreakWrap = paddedNoSpecBase : wrapRest columns listPadding'
-        ( mapSpecs
+        ( mapSpecs 0 False
         $ withInit (++ ",")
         . withHead ("(" ++)
         . withLast (++ ")"))
@@ -216,7 +227,7 @@ prettyImport columns Options{..} padQualified padName longest imp
 
     -- 'wrapRest 0' ensures that every item of spec list is on new line.
     multilineWrap = paddedNoSpecBase : wrapRest 0 listPadding'
-        ( mapSpecs
+        ( mapSpecs listPadding' True
           ( withHead ("( " ++)
           . withTail (", " ++))
         ++ [")"])
@@ -262,10 +273,10 @@ prettyImport columns Options{..} padQualified padName longest imp
         | padQualified          = ["         "]
         | otherwise             = []
 
-    mapSpecs f = case importSpecs of
+    mapSpecs padding multiline f = case importSpecs of
         Nothing -> []     -- Import everything
         Just [] -> ["()"] -- Instance only imports
-        Just is -> f $ map (prettyImportSpec separateLists) is
+        Just is -> f $ map (prettyImportSpec (2 * padding) multiline separateLists) is
 
 
 --------------------------------------------------------------------------------
