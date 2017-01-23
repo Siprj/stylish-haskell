@@ -23,6 +23,7 @@ import           Data.Ord                        (comparing)
 import qualified Language.Haskell.Exts           as H
 import qualified Data.Aeson                      as A
 import qualified Data.Aeson.Types                as A
+import           Data.Monoid                     ((<>))
 
 
 --------------------------------------------------------------------------------
@@ -267,29 +268,104 @@ prettyImport columns Options{..} padQualified padName longest imp
         Just [] -> ["()"] -- Instance only imports
         Just is -> f $ map (prettyImportSpec separateLists) is
 
+--import qualified Module.Name (spec, Spec(SubSpec, subSpec))
+
+data Import = Import Qualified Spec
+
+data Spec = Spec Lit SubSpec Lit NewLine' Lit
+
+data SubSpec = SubSpec Lit NewLine' Lit
+
+data Lit
+    = Lit String
+    | Nill
+
+data Qualified
+    = GlobalPad
+    | FilePad
+    | GroupPad
+    | NoPad
+
+data NewLine'
+    = NewLine'
+    | NewLineIfAllSpecLong
+    | NewLineAsFarAsPossible
+    | NoNewLine
+
+-- | Structure holding information about length of individual parts of
+-- pretty printed import.
+-- > import qualified Module.Name as Alias hiding (Foo (Bar, Baz))
+--                              |        |      |
+-- afterModuleName -------------+        |      |
+-- afterAlias ---------------------------+      |
+-- afterBase  ----------------------------------+
+--
+-- If the hiding part is missing afterBase is equal to afterAlias.
+-- If the as alias is missing afterAlias is equal to afterModuleName.
+data Stats = Stats
+    { afterModuleName :: Int
+    , afterAlias :: Int
+    , afterBase :: Int
+    }
+
+data Options' = Options'
+    { padQualified :: Bool
+    , globalPrettyStats :: Stats
+    , importStyle :: Import
+    }
+
+prettyMy :: Options' -> [H.ImportDecl LineBlock] -> Lines
+prettyMy (Options' shouldPadQualified gStats style) imps =
+    fmap (fst . prettyOnlyBase shouldPadQualified style) imps
+
+prettyOnlyBase
+    :: Bool
+    -> Import
+    -> H.ImportDecl LineBlock
+    -> (String, Stats)
+prettyOnlyBase padQualified (Import qualified spec) imp =
+    let afterNameLength = length $ unwords moduleName
+        afterAliasLenght = length $ unwords alias
+        afterBaseLength = length $ unwords base
+    in (unwords base
+       , Stats
+           { afterModuleName = afterNameLength
+           , afterAlias = afterAliasLenght
+           , afterBase = afterBaseLength
+           }
+       )
+  where
+    isImporQualified = H.importQualified imp
+    qualified True = "qualified"
+    qualified False = if padQualified
+        then "         "
+        else ""
+
+    moduleNameRec (H.ModuleName _ n) = n
+
+    moduleName =
+        [ "import"
+        , qualified isImporQualified
+        , moduleNameRec $ H.importModule imp
+        ]
+    alias = moduleName
+        <> ["as " <> moduleNameRec x | x <- maybeToList $ H.importAs imp]
+    base = alias
+        <> if hasHiding
+            then ["hiding"]
+            else []
+
+    hasHiding :: Bool
+    hasHiding = maybe False hasHiding' $ H.importSpecs imp
+    hasHiding' (H.ImportSpecList _ x _) = x
 
 --------------------------------------------------------------------------------
-prettyImportGroup :: Int -> Options -> Bool -> Int
+prettyImportGroup :: Int -> Bool -> Int
                   -> [H.ImportDecl LineBlock]
                   -> Lines
-prettyImportGroup columns align fileAlign longest imps =
-    concatMap (prettyImport columns align padQual padName longest') $
-    sortBy compareImports imps
-  where
-    align' = importAlign align
-
-    longest' = case align' of
-        Group -> longestImport imps
-        _     -> longest
-
-    padName = align' /= None
-
-    padQual = case align' of
-        Global -> True
-        File   -> fileAlign
-        Group  -> any H.importQualified imps
-        None   -> False
-
+prettyImportGroup columns qualified longest imps =
+    prettyMy (Options' qualified (Stats 0 0 0)
+    (Import FilePad (Spec Nill (SubSpec Nill NoNewLine Nill) Nill NoNewLine Nill))) $ sortBy compareImports imps
 
 --------------------------------------------------------------------------------
 step :: Int -> Options -> Step
@@ -300,7 +376,8 @@ step columns = makeStep "Imports" . step' columns
 step' :: Int -> Options -> Lines -> Module -> Lines
 step' columns align ls (module', _) = applyChanges
     [ change block $ const $
-        prettyImportGroup columns align fileAlign longest importGroup
+        prettyImportGroup columns (shouldPadQualified importGroup)
+        longest importGroup
     | (block, importGroup) <- groups
     ]
     ls
@@ -308,6 +385,14 @@ step' columns align ls (module', _) = applyChanges
     imps    = map sortImportSpecs $ imports $ fmap linesFromSrcSpan module'
     longest = longestImport imps
     groups  = groupAdjacent [(H.ann i, i) | i <- imps]
+
+    shouldPadQualified group = case qualOpt of
+        GlobalPad -> True
+        FilePad -> any H.importQualified imps
+        GroupPad -> any H.importQualified group
+        NoPad -> False
+
+    qualOpt = FilePad
 
     fileAlign = case importAlign align of
         File -> any H.importQualified imps
