@@ -313,13 +313,18 @@ data GlobalStats = GlobalStats
     , stats :: [Stats]
     }
 
+data GroupStats = GroupStats
+    { gropuStats :: [Stats]
+    , globalStats :: GlobalStats
+    }
+
 data Options' = Options'
     { importStyle :: Import
     }
 
-prettyMy :: GlobalStats -> Options' -> [H.ImportDecl LineBlock] -> Lines
-prettyMy GlobalStats{..} Options'{..} imps =
-    fmap (fst . prettyOnlyBase statsPadQualified importStyle) imps
+prettyMy :: GroupStats -> Options' -> [H.ImportDecl LineBlock] -> Lines
+prettyMy GroupStats{..} Options'{..} imps =
+    fmap (fst . prettyOnlyBase (statsPadQualified globalStats) importStyle) imps
 
 prettyOnlyBase
     :: Bool
@@ -364,7 +369,7 @@ prettyOnlyBase padQualified (Import qualified spec) imp =
 
 
 --------------------------------------------------------------------------------
-prettyImportGroup :: Int -> GlobalStats -> Options' -> Int
+prettyImportGroup :: Int -> GroupStats -> Options' -> Int
                   -> [H.ImportDecl LineBlock]
                   -> Lines
 prettyImportGroup columns globalStats options longest imps =
@@ -382,7 +387,7 @@ o = Options' i
 step' :: Int -> Options -> Lines -> Module -> Lines
 step' columns align ls (module', _) = applyChanges
     [ change block . const $
-        prettyImportGroup columns (globalStats importGroup) o longest importGroup
+        prettyImportGroup columns (groupStats importGroup) o longest importGroup
     | (block, importGroup) <- groups
     ]
     ls
@@ -391,7 +396,14 @@ step' columns align ls (module', _) = applyChanges
     longest = longestImport imps
     groups  = groupAdjacent [(H.ann i, i) | i <- imps]
 
-    globalStats group = GlobalStats
+    groupStats :: [H.ImportDecl LineBlock] -> GroupStats
+    groupStats group = GroupStats
+        { gropuStats = fmap (snd . prettyOnlyBase (shouldPadQualified group) i) group
+        , globalStats = globalStats' group
+        }
+
+    globalStats' :: [H.ImportDecl LineBlock] -> GlobalStats
+    globalStats' group = GlobalStats
         { stats = map (snd . prettyOnlyBase (shouldPadQualified group) i) imps
         , statsPadQualified = shouldPadQualified group
         }
