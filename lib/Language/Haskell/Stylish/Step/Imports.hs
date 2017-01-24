@@ -308,15 +308,18 @@ data Stats = Stats
     , afterBase :: Int
     }
 
-data Options' = Options'
-    { padQualified :: Bool
-    , globalPrettyStats :: Stats
-    , importStyle :: Import
+data GlobalStats = GlobalStats
+    { statsPadQualified :: Bool
+    , stats :: [Stats]
     }
 
-prettyMy :: Options' -> [H.ImportDecl LineBlock] -> Lines
-prettyMy (Options' shouldPadQualified gStats style) imps =
-    fmap (fst . prettyOnlyBase shouldPadQualified style) imps
+data Options' = Options'
+    { importStyle :: Import
+    }
+
+prettyMy :: GlobalStats -> Options' -> [H.ImportDecl LineBlock] -> Lines
+prettyMy GlobalStats{..} Options'{..} imps =
+    fmap (fst . prettyOnlyBase statsPadQualified importStyle) imps
 
 prettyOnlyBase
     :: Bool
@@ -327,7 +330,7 @@ prettyOnlyBase padQualified (Import qualified spec) imp =
     let afterNameLength = length $ unwords moduleName
         afterAliasLenght = length $ unwords alias
         afterBaseLength = length $ unwords base
-    in (unwords base
+    in ( unwords base
        , Stats
            { afterModuleName = afterNameLength
            , afterAlias = afterAliasLenght
@@ -359,25 +362,27 @@ prettyOnlyBase padQualified (Import qualified spec) imp =
     hasHiding = maybe False hasHiding' $ H.importSpecs imp
     hasHiding' (H.ImportSpecList _ x _) = x
 
+
 --------------------------------------------------------------------------------
-prettyImportGroup :: Int -> Bool -> Int
+prettyImportGroup :: Int -> GlobalStats -> Options' -> Int
                   -> [H.ImportDecl LineBlock]
                   -> Lines
-prettyImportGroup columns qualified longest imps =
-    prettyMy (Options' qualified (Stats 0 0 0)
-    (Import FilePad (Spec Nill (SubSpec Nill NoNewLine Nill) Nill NoNewLine Nill))) $ sortBy compareImports imps
+prettyImportGroup columns globalStats options longest imps =
+    prettyMy globalStats options $ sortBy compareImports imps
+
 
 --------------------------------------------------------------------------------
 step :: Int -> Options -> Step
 step columns = makeStep "Imports" . step' columns
 
 
+i = Import FilePad (Spec Nill (SubSpec Nill NoNewLine Nill) Nill NoNewLine Nill)
+o = Options' i
 --------------------------------------------------------------------------------
 step' :: Int -> Options -> Lines -> Module -> Lines
 step' columns align ls (module', _) = applyChanges
-    [ change block $ const $
-        prettyImportGroup columns (shouldPadQualified importGroup)
-        longest importGroup
+    [ change block . const $
+        prettyImportGroup columns (globalStats importGroup) o longest importGroup
     | (block, importGroup) <- groups
     ]
     ls
@@ -386,6 +391,11 @@ step' columns align ls (module', _) = applyChanges
     longest = longestImport imps
     groups  = groupAdjacent [(H.ann i, i) | i <- imps]
 
+    globalStats group = GlobalStats
+        { stats = map (snd . prettyOnlyBase (shouldPadQualified group) i) imps
+        , statsPadQualified = shouldPadQualified group
+        }
+
     shouldPadQualified group = case qualOpt of
         GlobalPad -> True
         FilePad -> any H.importQualified imps
@@ -393,10 +403,6 @@ step' columns align ls (module', _) = applyChanges
         NoPad -> False
 
     qualOpt = FilePad
-
-    fileAlign = case importAlign align of
-        File -> any H.importQualified imps
-        _    -> False
 
 --------------------------------------------------------------------------------
 listPaddingValue :: Int -> ListPadding -> Int
