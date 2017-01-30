@@ -181,43 +181,9 @@ parseSimpleAlign c o = SimpleAlign.step
 parseImports :: Config -> A.Object -> A.Parser Step
 parseImports config o = Imports.step
     <$> pure (configColumns config)
-    <*> (Imports.Options
-        <$> (o A..:? "align" >>= parseEnum aligns (def Imports.importAlign))
-        <*> (o A..:? "list_align" >>= parseEnum listAligns (def Imports.listAlign))
-        <*> (o A..:? "long_list_align"
-            >>= parseEnum longListAligns (def Imports.longListAlign))
-        -- Note that padding has to be at least 1. Default is 4.
-        <*> (o A..:? "empty_list_align"
-            >>= parseEnum emptyListAligns (def Imports.emptyListAlign))
-        <*> o A..:? "list_padding" A..!= (def Imports.listPadding)
-        <*> o A..:? "separate_lists" A..!= (def Imports.separateLists))
+    <*> (return Imports.Options)
   where
     def f = f Imports.defaultOptions
-
-    aligns =
-        [ ("global", Imports.Global)
-        , ("file",   Imports.File)
-        , ("group",  Imports.Group)
-        , ("none",   Imports.None)
-        ]
-
-    listAligns =
-        [ ("new_line",    Imports.NewLine)
-        , ("with_alias",  Imports.WithAlias)
-        , ("after_alias", Imports.AfterAlias)
-        ]
-
-    longListAligns =
-        [ ("inline",             Imports.Inline)
-        , ("new_line",           Imports.InlineWithBreak)
-        , ("new_line_multiline", Imports.InlineToMultiline)
-        , ("multiline",          Imports.Multiline)
-        ]
-
-    emptyListAligns =
-        [ ("inherit", Imports.Inherit)
-        , ("right_after", Imports.RightAfter)
-        ]
 
 --------------------------------------------------------------------------------
 parseLanguagePragmas :: Config -> A.Object -> A.Parser Step

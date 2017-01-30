@@ -4,11 +4,11 @@
 module Language.Haskell.Stylish.Step.Imports
     ( Options (..)
     , defaultOptions
-    , ImportAlign (..)
-    , ListAlign (..)
-    , LongListAlign (..)
-    , EmptyListAlign (..)
-    , ListPadding (..)
+    --, ImportAlign (..)
+    --, ListAlign (..)
+    --, LongListAlign (..)
+    --, EmptyListAlign (..)
+    --, ListPadding (..)
     , step
     ) where
 
@@ -17,6 +17,7 @@ module Language.Haskell.Stylish.Step.Imports
 import           Control.Arrow                   ((&&&))
 import           Control.Monad                   (void)
 import           Data.Char                       (toLower)
+import           Data.List
 import           Data.List                       (intercalate, sortBy)
 import           Data.Maybe                      (isJust, maybeToList)
 import           Data.Ord                        (comparing)
@@ -89,11 +90,11 @@ imports _                     = []
 
 
 --------------------------------------------------------------------------------
--- importName :: H.ImportDecl l -> String
--- importName i = let (H.ModuleName _ n) = H.importModule i in n
---
---
--- --------------------------------------------------------------------------------
+importName :: H.ImportDecl l -> String
+importName i = let (H.ModuleName _ n) = H.importModule i in n
+
+
+--------------------------------------------------------------------------------
 longestImport :: [H.ImportDecl l] -> Int
 longestImport = maximum . map (length . importName)
 
@@ -280,7 +281,6 @@ data Import = Import
 data Spec = Spec
     { specsBefore :: [Piece]
     , specsAfter :: [Piece]
-    , specsAfterBreak :: [Piece]
     , specsOther :: [Piece]
     , subSpecs :: SubSpec
     }
@@ -288,25 +288,18 @@ data Spec = Spec
 data SubSpec = SubSpec
     { subSpecsBefore :: [Piece]
     , subSpecsAfter :: [Piece]
-    , subSpecsAfterBreak :: [Piece]
     , subSpecsOther :: [Piece]
     , subSpecsAll :: [Piece]
     }
 
-data NewLine' = NewLine' | NewLineAsFarAsPossible
+data Piece
+    = Lit String
+    | NewLine NewLine' [Piece]
+    | NewLineAsFarAsPossible [Piece]
+    | Spec
 
-data Piece = Lit String | NewLine NewLine'
-
-type PieceResult =
-    ( String
-    -- ^ String
-    , Int
-    -- ^ length of string on current line
-    , Bool
-    -- ^ Is new line in this spec
-    )
-
-data ShouldBreak = SBBreak | SBTest | SBDontBreak
+-- | (lines delimited by '\n', length of current line)
+type PieceResult = (String, Int)
 
 data Qualified = GlobalPad | FilePad | GroupPad | NoPad
 
@@ -345,10 +338,13 @@ addString :: String -> PieceResult -> PieceResult
 addString str2 (str, len, break) =
     (str <> str2, len + length str2, break)
 
-specToEither :: [H.ImportSpec a ] -> Either (String, [H.CName a]) String
+specToEither :: H.ImportSpec a -> Either (String, [H.CName a]) String
 specToEither (H.IThingAll  _ x) = Left (H.prettyPrint x, [])
 specToEither (H.IThingWith _ x sscs) = Left (H.prettyPrint x, sscs)
-specToEither x = Right H.prettyPrint x
+specToEither x = Right $ H.prettyPrint x
+
+getString :: PieceResult -> String
+getString (str, _, _) = str
 
 modNewLineFlag :: (Bool -> Bool) -> PieceResult -> PieceResult
 modNewLineFlag f (str, len, flag) =  (str, len, f flag)
@@ -360,31 +356,36 @@ getNewLineFlag :: PieceResult -> Bool
 getNewLineFlag (_, _, flag) = flag
 
 getLength :: PieceResult -> Int
-getLength (_, _, flag) = flag
+getLength (_, len, _) = len
 
 prettyMy :: GroupStats -> Options' -> [H.ImportDecl LineBlock] -> Lines
 prettyMy GroupStats{..} Options'{..} imps =
     mconcat $ fmap (prettyPrintWhole importStyle) imps
   where
     prettyPrintWhole :: Import -> H.ImportDecl LineBlock -> [String]
-    prettyPrintWhole Import{..} imp@H.ImportDecl{..} [] = case H.importSpecs of
-        Nothing -> unwords prettyPrintBase
-        Just (H.ImportSpecList _ _ []) -> let (str, len, _) = printEmpty False
-              in if len > columns
-                  then lines str
-                  else lines fst $ printEmpty True
-        Just (H.ImportSpecList _ _ xs) -> printShort
+    prettyPrintWhole Import{..} imp@H.ImportDecl{..} = case importSpecs of
+        Nothing -> lines prettyPrintBase
+        Just (H.ImportSpecList _ _ []) ->
+            let (str, len, _) = printEmpty False _formatIfSpecsEmpty
+            in if len > columns
+                then lines str
+                else lines . getString $ printEmpty True _formatIfSpecsEmpty
+        Just (H.ImportSpecList _ _ xs) ->
+            lines . getString $ printShort xs _shortSpec
             -- TODO: Long
       where
-        printEmpty pred imp = printPieces _formatIfSpecsEmpty base pred
+        printEmpty pred imp = printPieces _formatIfSpecsEmpty pred base
 
         prettyPrintBase =
-            prettyOnlyBase (statsPadQualified globalStats) importStyle imp
+            let (b, _) = prettyOnlyBase (statsPadQualified globalStats)
+                    importStyle imp
+            in b
 
         base = (prettyPrintBase, length prettyPrintBase, False)
 
 -- {{{ Printing short ---------------------------------------------------------
 
+        printShort :: [H.ImportSpec a] -> Spec -> PieceResult
         printShort (x : xs) spec@Spec{..} =
             let res = printPieces specsBefore False base
             in printShort' xs spec $ case specToEither x of
@@ -392,55 +393,62 @@ prettyMy GroupStats{..} Options'{..} imps =
                 Left (specStr, sscs) ->
                     printSubSpec sscs subSpecs False $ addString specStr res
 
+        printShort' :: [H.ImportSpec a] -> Spec -> PieceResult -> PieceResult
         printShort' [] Spec{..} r = printPieces specsAfter False r
-        printShort' (x : xs) Spec{..} r =
-            printShort' xs subSpec . speaddString . H.prettyPrint x
-                $ if getNewLineFlag r
-                    then nullNewLineFlag $ printPieces subSpecsAfterBreak r
-                    else printPieces subSpecsAfter r
+        printShort' (x : xs) spec@Spec{..} r =
+            printShort' xs spec $ case specToEither x of
+                Right specStr -> addString specStr r
+                Left (specStr, sscs) ->
+                    printSubSpec sscs subSpecs False $ addString specStr r
 
 -- }}} Printing short ---------------------------------------------------------
 -- {{{ Printing sub spec ------------------------------------------------------
 
-        printSubSpec :: [H.CName a] -> SubSpec -> Bool -> PieceResult
-        printSubSpec [] subSpec@SubSpec{..} pred =
-            printPieces subSpecsAll pred
+        printSubSpec
+            :: [H.CName a]
+            -> SubSpec
+            -> Bool
+            -> PieceResult
+            -> PieceResult
+        printSubSpec [] subSpec@SubSpec{..} pred r =
+            printPieces subSpecsAll pred r
         printSubSpec (x : xs) subSpec@SubSpec{..} pred r =
-            printSubSpec' xs subSpec pred . addString . H.prettyPrint x
+            printSubSpec' xs subSpec pred . addString (H.prettyPrint x)
                 $ printPieces subSpecsBefore pred r
 
-        printSubSpec' :: [H.CName a] -> SubSpec -> Bool -> PieceResult
+        printSubSpec'
+            :: [H.CName a]
+            -> SubSpec
+            -> Bool
+            -> PieceResult
+            -> PieceResult
         printSubSpec' [] SubSpec{..} pred r =
             printPieces subSpecsAfter pred r
         printSubSpec' (x : xs) subSpec@SubSpec{..} pred r =
-            printSubSpec' xs subSpec pred . speaddString . H.prettyPrint x
-                $ if getNewLineFlag r
+            printSubSpec' xs subSpec pred . addString (H.prettyPrint x)
+                $
                     then nullNewLineFlag $ printPieces subSpecsAfterBreak pred r
                     else printPieces subSpecsAfter pred r
 
         printPieces :: [Piece] -> Bool -> PieceResult -> PieceResult
-        printPieces ps shouldBreak base = foldl' printPiece base ps
+        printPieces ps base = foldl' (printPiece False) base ps
 
 -- }}} Printing sub spec ------------------------------------------------------
 -- {{{ Printing pieces --------------------------------------------------------
 
         printPiece
-            :: PieceResult
-            -> Bool
-            -- ^ Should break?
+            :: PieceResult -- ^ Another pieces run; peak to the future.
+            -> PieceResult
             -> Piece
             -- ^ Previous pretty printed string
             -> PieceResult
-        printPiece (xs, len, pred) _ (Lit str) =
-            (xs <> str, len + length str, False || pred)
-        printPiece (xs, len, pred) shouldBreak (NewLine nl) =
-            case nl of
-                NewLine' -> (xs <> newLine, 0, True)
-                NewLineAsFarAsPossible -> if shouldBreak
-                    then (xs <> newLine, 0, True)
-                    else (xs, len, False || pred)
+        printPiece _ (xs, len, pred) (Lit str) =
+            (xs <> str, len + length str)
+        printPiece future (xs, len, pred) (NewLine nl) =
+                NewLine' -> (xs <> newLine, 0)
+                NewLineAsFarAsPossible -> (xs <> newLine, 0)
           where
-            newLine = "\n"
+            newLine = (xs <> "\n", 0)
 
     toList a = [a]
 
