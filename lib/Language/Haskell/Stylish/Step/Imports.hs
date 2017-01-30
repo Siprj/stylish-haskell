@@ -23,7 +23,7 @@ import           Data.Ord                        (comparing)
 import qualified Language.Haskell.Exts           as H
 import qualified Data.Aeson                      as A
 import qualified Data.Aeson.Types                as A
-import           Data.Monoid                     ((<>))
+import           Data.Monoid                     ((<>), mconcat)
 
 
 --------------------------------------------------------------------------------
@@ -34,53 +34,53 @@ import           Language.Haskell.Stylish.Util
 
 --------------------------------------------------------------------------------
 data Options = Options
-    { importAlign    :: ImportAlign
-    , listAlign      :: ListAlign
-    , longListAlign  :: LongListAlign
-    , emptyListAlign :: EmptyListAlign
-    , listPadding    :: ListPadding
-    , separateLists  :: Bool
-    } deriving (Eq, Show)
+--    { importAlign    :: ImportAlign
+--    , listAlign      :: ListAlign
+--    , longListAlign  :: LongListAlign
+--    , emptyListAlign :: EmptyListAlign
+--    , listPadding    :: ListPadding
+--    , separateLists  :: Bool
+--    } deriving (Eq, Show)
 
 defaultOptions :: Options
 defaultOptions = Options
-    { importAlign    = Global
-    , listAlign      = AfterAlias
-    , longListAlign  = Inline
-    , emptyListAlign = Inherit
-    , listPadding    = LPConstant 4
-    , separateLists  = True
-    }
+--    { importAlign    = Global
+--    , listAlign      = AfterAlias
+--    , longListAlign  = Inline
+--    , emptyListAlign = Inherit
+--    , listPadding    = LPConstant 4
+--    , separateLists  = True
+--    }
 
-data ListPadding
-    = LPConstant Int
-    | LPModuleName
-    deriving (Eq, Show)
-
-data ImportAlign
-    = Global
-    | File
-    | Group
-    | None
-    deriving (Eq, Show)
-
-data ListAlign
-    = NewLine
-    | WithAlias
-    | AfterAlias
-    deriving (Eq, Show)
-
-data EmptyListAlign
-    = Inherit
-    | RightAfter
-    deriving (Eq, Show)
-
-data LongListAlign
-    = Inline
-    | InlineWithBreak
-    | InlineToMultiline
-    | Multiline
-    deriving (Eq, Show)
+-- data ListPadding
+--     = LPConstant Int
+--     | LPModuleName
+--     deriving (Eq, Show)
+--
+-- data ImportAlign
+--     = Global
+--     | File
+--     | Group
+--     | None
+--     deriving (Eq, Show)
+--
+-- data ListAlign
+--     = NewLine
+--     | WithAlias
+--     | AfterAlias
+--     deriving (Eq, Show)
+--
+-- data EmptyListAlign
+--     = Inherit
+--     | RightAfter
+--     deriving (Eq, Show)
+--
+-- data LongListAlign
+--     = Inline
+--     | InlineWithBreak
+--     | InlineToMultiline
+--     | Multiline
+--     deriving (Eq, Show)
 
 --------------------------------------------------------------------------------
 imports :: H.Module l -> [H.ImportDecl l]
@@ -89,11 +89,11 @@ imports _                     = []
 
 
 --------------------------------------------------------------------------------
-importName :: H.ImportDecl l -> String
-importName i = let (H.ModuleName _ n) = H.importModule i in n
-
-
---------------------------------------------------------------------------------
+-- importName :: H.ImportDecl l -> String
+-- importName i = let (H.ModuleName _ n) = H.importModule i in n
+--
+--
+-- --------------------------------------------------------------------------------
 longestImport :: [H.ImportDecl l] -> Int
 longestImport = maximum . map (length . importName)
 
@@ -147,150 +147,168 @@ compareImportSubSpecs = comparing key
 -- > import Foo (Bar (..))
 --
 -- instead.
-prettyImportSpec :: (Ord l) => Bool -> H.ImportSpec l -> String
-prettyImportSpec separate = prettyImportSpec'
-  where
-    prettyImportSpec' (H.IThingAll  _ n)     = H.prettyPrint n ++ sep "(..)"
-    prettyImportSpec' (H.IThingWith _ n cns) = H.prettyPrint n
-        ++ sep "("
-        ++ intercalate ", "
-          (map H.prettyPrint $ sortBy compareImportSubSpecs cns)
-        ++ ")"
-    prettyImportSpec' x                      = H.prettyPrint x
-
-    sep = if separate then (' ' :) else id
-
-
---------------------------------------------------------------------------------
-prettyImport :: (Ord l, Show l) =>
-    Int -> Options -> Bool -> Bool -> Int -> H.ImportDecl l -> [String]
-prettyImport columns Options{..} padQualified padName longest imp
-    | (void `fmap` H.importSpecs imp) == emptyImportSpec = emptyWrap
-    | otherwise = case longListAlign of
-        Inline            -> inlineWrap
-        InlineWithBreak   -> longListWrapper inlineWrap inlineWithBreakWrap
-        InlineToMultiline -> longListWrapper inlineWrap inlineToMultilineWrap
-        Multiline         -> longListWrapper inlineWrap multilineWrap
-  where
-    emptyImportSpec = Just (H.ImportSpecList () False [])
-    -- "import" + space + qualifiedLength has space in it.
-    listPadding' = listPaddingValue (6 + 1 + qualifiedLength) listPadding
-      where
-        qualifiedLength =
-            if null qualified then 0 else 1 + sum (map length qualified)
-
-    longListWrapper shortWrap longWrap
-        | listAlign == NewLine
-        || length shortWrap > 1
-        || length (head shortWrap) > columns
-            = longWrap
-        | otherwise = shortWrap
-
-    emptyWrap = case emptyListAlign of
-        Inherit -> inlineWrap
-        RightAfter -> [paddedNoSpecBase ++ " ()"]
-
-    inlineWrap = inlineWrapper
-        $ mapSpecs
-        $ withInit (++ ",")
-        . withHead ("(" ++)
-        . withLast (++ ")")
-
-    inlineWrapper = case listAlign of
-        NewLine    -> (paddedNoSpecBase :) . wrapRest columns listPadding'
-        WithAlias  -> wrap columns paddedBase (inlineBaseLength + 1)
-        -- Add 1 extra space to ensure same padding as in original code.
-        AfterAlias -> withTail (' ' :)
-            . wrap columns paddedBase (afterAliasBaseLength + 1)
-
-    inlineWithBreakWrap = paddedNoSpecBase : wrapRest columns listPadding'
-        ( mapSpecs
-        $ withInit (++ ",")
-        . withHead ("(" ++)
-        . withLast (++ ")"))
-
-    inlineToMultilineWrap
-        | length inlineWithBreakWrap > 2
-        || any ((> columns) . length) (tail inlineWithBreakWrap)
-            = multilineWrap
-        | otherwise = inlineWithBreakWrap
-
-    -- 'wrapRest 0' ensures that every item of spec list is on new line.
-    multilineWrap = paddedNoSpecBase : wrapRest 0 listPadding'
-        ( mapSpecs
-          ( withHead ("( " ++)
-          . withTail (", " ++))
-        ++ [")"])
-
-    paddedBase = base $ padImport $ importName imp
-
-    paddedNoSpecBase = base $ padImportNoSpec $ importName imp
-
-    padImport = if hasExtras && padName
-        then padRight longest
-        else id
-
-    padImportNoSpec = if (isJust (H.importAs imp) || hasHiding) && padName
-        then padRight longest
-        else id
-
-    base' baseName importAs hasHiding' = unwords $ concat $ filter (not . null)
-        [ ["import"]
-        , qualified
-        , show <$> maybeToList (H.importPkg imp)
-        , [baseName]
-        , importAs
-        , hasHiding'
-        ]
-
-    base baseName = base' baseName
-        ["as " ++ as | H.ModuleName _ as <- maybeToList $ H.importAs imp]
-        ["hiding" | hasHiding]
-
-    inlineBaseLength = length $ base' (padImport $ importName imp) [] []
-
-    afterAliasBaseLength = length $ base' (padImport $ importName imp)
-        ["as " ++ as | H.ModuleName _ as <- maybeToList $ H.importAs imp] []
-
-    (hasHiding, importSpecs) = case H.importSpecs imp of
-        Just (H.ImportSpecList _ h l) -> (h, Just l)
-        _                             -> (False, Nothing)
-
-    hasExtras = isJust (H.importAs imp) || isJust (H.importSpecs imp)
-
-    qualified
-        | H.importQualified imp = ["qualified"]
-        | padQualified          = ["         "]
-        | otherwise             = []
-
-    mapSpecs f = case importSpecs of
-        Nothing -> []     -- Import everything
-        Just [] -> ["()"] -- Instance only imports
-        Just is -> f $ map (prettyImportSpec separateLists) is
+--prettyImportSpec :: (Ord l) => Bool -> H.ImportSpec l -> String
+--prettyImportSpec separate = prettyImportSpec'
+--  where
+--    prettyImportSpec' (H.IThingAll  _ n)     = H.prettyPrint n ++ sep "(..)"
+--    prettyImportSpec' (H.IThingWith _ n cns) = H.prettyPrint n
+--        ++ sep "("
+--        ++ intercalate ", "
+--          (map H.prettyPrint $ sortBy compareImportSubSpecs cns)
+--        ++ ")"
+--    prettyImportSpec' x                      = H.prettyPrint x
+--
+--    sep = if separate then (' ' :) else id
+--
+--
+----------------------------------------------------------------------------------
+--prettyImport :: (Ord l, Show l) =>
+--    Int -> Options -> Bool -> Bool -> Int -> H.ImportDecl l -> [String]
+--prettyImport columns Options{..} padQualified padName longest imp
+--    | (void `fmap` H.importSpecs imp) == emptyImportSpec = emptyWrap
+--    | otherwise = case longListAlign of
+--        Inline            -> inlineWrap
+--        InlineWithBreak   -> longListWrapper inlineWrap inlineWithBreakWrap
+--        InlineToMultiline -> longListWrapper inlineWrap inlineToMultilineWrap
+--        Multiline         -> longListWrapper inlineWrap multilineWrap
+--  where
+--    emptyImportSpec = Just (H.ImportSpecList () False [])
+--    -- "import" + space + qualifiedLength has space in it.
+--    listPadding' = listPaddingValue (6 + 1 + qualifiedLength) listPadding
+--      where
+--        qualifiedLength =
+--            if null qualified then 0 else 1 + sum (map length qualified)
+--
+--    longListWrapper shortWrap longWrap
+--        | listAlign == NewLine
+--        || length shortWrap > 1
+--        || length (head shortWrap) > columns
+--            = longWrap
+--        | otherwise = shortWrap
+--
+--    emptyWrap = case emptyListAlign of
+--        Inherit -> inlineWrap
+--        RightAfter -> [paddedNoSpecBase ++ " ()"]
+--
+--    inlineWrap = inlineWrapper
+--        $ mapSpecs
+--        $ withInit (++ ",")
+--        . withHead ("(" ++)
+--        . withLast (++ ")")
+--
+--    inlineWrapper = case listAlign of
+--        NewLine    -> (paddedNoSpecBase :) . wrapRest columns listPadding'
+--        WithAlias  -> wrap columns paddedBase (inlineBaseLength + 1)
+--        -- Add 1 extra space to ensure same padding as in original code.
+--        AfterAlias -> withTail (' ' :)
+--            . wrap columns paddedBase (afterAliasBaseLength + 1)
+--
+--    inlineWithBreakWrap = paddedNoSpecBase : wrapRest columns listPadding'
+--        ( mapSpecs
+--        $ withInit (++ ",")
+--        . withHead ("(" ++)
+--        . withLast (++ ")"))
+--
+--    inlineToMultilineWrap
+--        | length inlineWithBreakWrap > 2
+--        || any ((> columns) . length) (tail inlineWithBreakWrap)
+--            = multilineWrap
+--        | otherwise = inlineWithBreakWrap
+--
+--    -- 'wrapRest 0' ensures that every item of spec list is on new line.
+--    multilineWrap = paddedNoSpecBase : wrapRest 0 listPadding'
+--        ( mapSpecs
+--          ( withHead ("( " ++)
+--          . withTail (", " ++))
+--        ++ [")"])
+--
+--    paddedBase = base $ padImport $ importName imp
+--
+--    paddedNoSpecBase = base $ padImportNoSpec $ importName imp
+--
+--    padImport = if hasExtras && padName
+--        then padRight longest
+--        else id
+--
+--    padImportNoSpec = if (isJust (H.importAs imp) || hasHiding) && padName
+--        then padRight longest
+--        else id
+--
+--    base' baseName importAs hasHiding' = unwords $ concat $ filter (not . null)
+--        [ ["import"]
+--        , qualified
+--        , show <$> maybeToList (H.importPkg imp)
+--        , [baseName]
+--        , importAs
+--        , hasHiding'
+--        ]
+--
+--    base baseName = base' baseName
+--        ["as " ++ as | H.ModuleName _ as <- maybeToList $ H.importAs imp]
+--        ["hiding" | hasHiding]
+--
+--    inlineBaseLength = length $ base' (padImport $ importName imp) [] []
+--
+--    afterAliasBaseLength = length $ base' (padImport $ importName imp)
+--        ["as " ++ as | H.ModuleName _ as <- maybeToList $ H.importAs imp] []
+--
+--    (hasHiding, importSpecs) = case H.importSpecs imp of
+--        Just (H.ImportSpecList _ h l) -> (h, Just l)
+--        _                             -> (False, Nothing)
+--
+--    hasExtras = isJust (H.importAs imp) || isJust (H.importSpecs imp)
+--
+--    qualified
+--        | H.importQualified imp = ["qualified"]
+--        | padQualified          = ["         "]
+--        | otherwise             = []
+--
+--    mapSpecs f = case importSpecs of
+--        Nothing -> []     -- Import everything
+--        Just [] -> ["()"] -- Instance only imports
+--        Just is -> f $ map (prettyImportSpec separateLists) is
 
 --import qualified Module.Name (spec, Spec(SubSpec, subSpec))
 
-data Import = Import Qualified Spec
+data Import = Import
+    { _padQualified :: Qualified
+    , _formatIfSpecsEmpty :: [Piece]
+    , _shortSpec :: Spec
+    , _longSpec :: Spec
+    }
 
-data Spec = Spec Lit SubSpec Lit NewLine' Lit
+data Spec = Spec
+    { specsBefore :: [Piece]
+    , specsAfter :: [Piece]
+    , specsAfterBreak :: [Piece]
+    , specsOther :: [Piece]
+    , subSpecs :: SubSpec
+    }
 
-data SubSpec = SubSpec Lit NewLine' Lit
+data SubSpec = SubSpec
+    { subSpecsBefore :: [Piece]
+    , subSpecsAfter :: [Piece]
+    , subSpecsAfterBreak :: [Piece]
+    , subSpecsOther :: [Piece]
+    , subSpecsAll :: [Piece]
+    }
 
-data Lit
-    = Lit String
-    | Nill
+data NewLine' = NewLine' | NewLineAsFarAsPossible
 
-data Qualified
-    = GlobalPad
-    | FilePad
-    | GroupPad
-    | NoPad
+data Piece = Lit String | NewLine NewLine'
 
-data NewLine'
-    = NewLine'
-    | NewLineIfAllSpecLong
-    | NewLineAsFarAsPossible
-    | NoNewLine
+type PieceResult =
+    ( String
+    -- ^ String
+    , Int
+    -- ^ length of string on current line
+    , Bool
+    -- ^ Is new line in this spec
+    )
+
+data ShouldBreak = SBBreak | SBTest | SBDontBreak
+
+data Qualified = GlobalPad | FilePad | GroupPad | NoPad
 
 -- | Structure holding information about length of individual parts of
 -- pretty printed import.
@@ -320,18 +338,120 @@ data GroupStats = GroupStats
 
 data Options' = Options'
     { importStyle :: Import
+    , columns :: Int
     }
+
+addString :: String -> PieceResult -> PieceResult
+addString str2 (str, len, break) =
+    (str <> str2, len + length str2, break)
+
+specToEither :: [H.ImportSpec a ] -> Either (String, [H.CName a]) String
+specToEither (H.IThingAll  _ x) = Left (H.prettyPrint x, [])
+specToEither (H.IThingWith _ x sscs) = Left (H.prettyPrint x, sscs)
+specToEither x = Right H.prettyPrint x
+
+modNewLineFlag :: (Bool -> Bool) -> PieceResult -> PieceResult
+modNewLineFlag f (str, len, flag) =  (str, len, f flag)
+
+nullNewLineFlag :: PieceResult -> PieceResult
+nullNewLineFlag (str, len, flag) =  (str, len, False)
+
+getNewLineFlag :: PieceResult -> Bool
+getNewLineFlag (_, _, flag) = flag
+
+getLength :: PieceResult -> Int
+getLength (_, _, flag) = flag
 
 prettyMy :: GroupStats -> Options' -> [H.ImportDecl LineBlock] -> Lines
 prettyMy GroupStats{..} Options'{..} imps =
-    fmap (fst . prettyOnlyBase (statsPadQualified globalStats) importStyle) imps
+    mconcat $ fmap (prettyPrintWhole importStyle) imps
+  where
+    prettyPrintWhole :: Import -> H.ImportDecl LineBlock -> [String]
+    prettyPrintWhole Import{..} imp@H.ImportDecl{..} [] = case H.importSpecs of
+        Nothing -> unwords prettyPrintBase
+        Just (H.ImportSpecList _ _ []) -> let (str, len, _) = printEmpty False
+              in if len > columns
+                  then lines str
+                  else lines fst $ printEmpty True
+        Just (H.ImportSpecList _ _ xs) -> printShort
+            -- TODO: Long
+      where
+        printEmpty pred imp = printPieces _formatIfSpecsEmpty base pred
+
+        prettyPrintBase =
+            prettyOnlyBase (statsPadQualified globalStats) importStyle imp
+
+        base = (prettyPrintBase, length prettyPrintBase, False)
+
+-- {{{ Printing short ---------------------------------------------------------
+
+        printShort (x : xs) spec@Spec{..} =
+            let res = printPieces specsBefore False base
+            in printShort' xs spec $ case specToEither x of
+                Right specStr -> addString specStr res
+                Left (specStr, sscs) ->
+                    printSubSpec sscs subSpecs False $ addString specStr res
+
+        printShort' [] Spec{..} r = printPieces specsAfter False r
+        printShort' (x : xs) Spec{..} r =
+            printShort' xs subSpec . speaddString . H.prettyPrint x
+                $ if getNewLineFlag r
+                    then nullNewLineFlag $ printPieces subSpecsAfterBreak r
+                    else printPieces subSpecsAfter r
+
+-- }}} Printing short ---------------------------------------------------------
+-- {{{ Printing sub spec ------------------------------------------------------
+
+        printSubSpec :: [H.CName a] -> SubSpec -> Bool -> PieceResult
+        printSubSpec [] subSpec@SubSpec{..} pred =
+            printPieces subSpecsAll pred
+        printSubSpec (x : xs) subSpec@SubSpec{..} pred r =
+            printSubSpec' xs subSpec pred . addString . H.prettyPrint x
+                $ printPieces subSpecsBefore pred r
+
+        printSubSpec' :: [H.CName a] -> SubSpec -> Bool -> PieceResult
+        printSubSpec' [] SubSpec{..} pred r =
+            printPieces subSpecsAfter pred r
+        printSubSpec' (x : xs) subSpec@SubSpec{..} pred r =
+            printSubSpec' xs subSpec pred . speaddString . H.prettyPrint x
+                $ if getNewLineFlag r
+                    then nullNewLineFlag $ printPieces subSpecsAfterBreak pred r
+                    else printPieces subSpecsAfter pred r
+
+        printPieces :: [Piece] -> Bool -> PieceResult -> PieceResult
+        printPieces ps shouldBreak base = foldl' printPiece base ps
+
+-- }}} Printing sub spec ------------------------------------------------------
+-- {{{ Printing pieces --------------------------------------------------------
+
+        printPiece
+            :: PieceResult
+            -> Bool
+            -- ^ Should break?
+            -> Piece
+            -- ^ Previous pretty printed string
+            -> PieceResult
+        printPiece (xs, len, pred) _ (Lit str) =
+            (xs <> str, len + length str, False || pred)
+        printPiece (xs, len, pred) shouldBreak (NewLine nl) =
+            case nl of
+                NewLine' -> (xs <> newLine, 0, True)
+                NewLineAsFarAsPossible -> if shouldBreak
+                    then (xs <> newLine, 0, True)
+                    else (xs, len, False || pred)
+          where
+            newLine = "\n"
+
+    toList a = [a]
+
+-- }}} Printing pieces --------------------------------------------------------
 
 prettyOnlyBase
     :: Bool
     -> Import
     -> H.ImportDecl LineBlock
     -> (String, Stats)
-prettyOnlyBase padQualified (Import qualified spec) imp =
+prettyOnlyBase padQualified (Import qualified _ _ _) imp =
     let afterNameLength = length $ unwords moduleName
         afterAliasLenght = length $ unwords alias
         afterBaseLength = length $ unwords base
@@ -380,9 +500,16 @@ prettyImportGroup columns globalStats options longest imps =
 step :: Int -> Options -> Step
 step columns = makeStep "Imports" . step' columns
 
+i = Import
+    { _padQualified = FilePad
+    , _formatIfSpecsEmpty = [Lit " ()"]
+    , _shortSpec = Spec [Lit " "] [Lit " "] [Lit " "] [Lit " "]
+        (SubSpec [Lit " "] [Lit " "] [Lit " "] [Lit " "] [Lit " "])
+    , _longSpec =  Spec [Lit " "] [Lit " "] [Lit " "] [Lit " "]
+        (SubSpec [Lit " "] [Lit " "] [Lit " "] [Lit " "] [Lit " "])
+    }
+o = Options' i 80
 
-i = Import FilePad (Spec Nill (SubSpec Nill NoNewLine Nill) Nill NoNewLine Nill)
-o = Options' i
 --------------------------------------------------------------------------------
 step' :: Int -> Options -> Lines -> Module -> Lines
 step' columns align ls (module', _) = applyChanges
@@ -417,15 +544,15 @@ step' columns align ls (module', _) = applyChanges
     qualOpt = FilePad
 
 --------------------------------------------------------------------------------
-listPaddingValue :: Int -> ListPadding -> Int
-listPaddingValue _ (LPConstant n) = n
-listPaddingValue n LPModuleName   = n
+--listPaddingValue :: Int -> ListPadding -> Int
+--listPaddingValue _ (LPConstant n) = n
+--listPaddingValue n LPModuleName   = n
 
 --------------------------------------------------------------------------------
 
-instance A.FromJSON ListPadding where
-    parseJSON (A.String "module_name") = return LPModuleName
-    parseJSON (A.Number n) | n' >= 1   = return $ LPConstant n'
-      where
-        n' = truncate n
-    parseJSON v                        = A.typeMismatch "'module_name' or >=1 number" v
+--instance A.FromJSON ListPadding where
+--    parseJSON (A.String "module_name") = return LPModuleName
+--    parseJSON (A.Number n) | n' >= 1   = return $ LPConstant n'
+--      where
+--        n' = truncate n
+--    parseJSON v                        = A.typeMismatch "'module_name' or >=1 number" v
