@@ -293,13 +293,24 @@ data SubSpec = SubSpec
     }
 
 data Piece
+    = NewLine' NewLine
+    | Other' Other
+
+data Other
     = Lit String
-    | NewLine NewLine' [Piece]
-    | NewLineAsFarAsPossible [Piece]
     | Spec
 
+data NewLine
+    | NewLine [Other]
+    | NewLineAsFarAsPossible [Other]
+
+data Break
+    = Break String
+    | BreakAFAP String
+    | Nill
+
 -- | (lines delimited by '\n', length of current line)
-type PieceResult = (String, Int)
+type PieceResult = (String, Break)
 
 data Qualified = GlobalPad | FilePad | GroupPad | NoPad
 
@@ -338,6 +349,10 @@ addString :: String -> PieceResult -> PieceResult
 addString str2 (str, len, break) =
     (str <> str2, len + length str2, break)
 
+addStringAfterBreak :: String -> PieceResult -> PieceResult
+addStringAfterBreak str2 (str, br, str') =
+    (str, br, str' <> str2)
+
 specToEither :: H.ImportSpec a -> Either (String, [H.CName a]) String
 specToEither (H.IThingAll  _ x) = Left (H.prettyPrint x, [])
 specToEither (H.IThingWith _ x sscs) = Left (H.prettyPrint x, sscs)
@@ -346,17 +361,11 @@ specToEither x = Right $ H.prettyPrint x
 getString :: PieceResult -> String
 getString (str, _, _) = str
 
-modNewLineFlag :: (Bool -> Bool) -> PieceResult -> PieceResult
-modNewLineFlag f (str, len, flag) =  (str, len, f flag)
+getStringAfterBreak :: PieceResult -> String
+getStringAfterBreak (_, _, str) = str
 
-nullNewLineFlag :: PieceResult -> PieceResult
-nullNewLineFlag (str, len, flag) =  (str, len, False)
-
-getNewLineFlag :: PieceResult -> Bool
-getNewLineFlag (_, _, flag) = flag
-
-getLength :: PieceResult -> Int
-getLength (_, len, _) = len
+getBreak :: PieceResult -> Break
+getBreak (_, br, _) = br
 
 prettyMy :: GroupStats -> Options' -> [H.ImportDecl LineBlock] -> Lines
 prettyMy GroupStats{..} Options'{..} imps =
@@ -381,7 +390,7 @@ prettyMy GroupStats{..} Options'{..} imps =
                     importStyle imp
             in b
 
-        base = (prettyPrintBase, length prettyPrintBase, False)
+        base = [(prettyPrintBase, Nill, "")]
 
 -- {{{ Printing short ---------------------------------------------------------
 
@@ -430,25 +439,43 @@ prettyMy GroupStats{..} Options'{..} imps =
                     then nullNewLineFlag $ printPieces subSpecsAfterBreak pred r
                     else printPieces subSpecsAfter pred r
 
-        printPieces :: [Piece] -> Bool -> PieceResult -> PieceResult
-        printPieces ps base = foldl' (printPiece False) base ps
+        printPieces
+            :: [Piece]
+            -- ^ Pieces which should be printed
+            -> String
+            -- ^ String which will replace Spec
+            -> [PieceResult]
+            -- ^ Previsou steps
+            -> [PieceResult]
+        printPieces ps spec base = foldl' (printPiece spec) base ps
 
 -- }}} Printing sub spec ------------------------------------------------------
 -- {{{ Printing pieces --------------------------------------------------------
 
         printPiece
-            :: PieceResult -- ^ Another pieces run; peak to the future.
+            :: String
+            -- ^ String which will replace Spec
             -> PieceResult
             -> Piece
             -- ^ Previous pretty printed string
             -> PieceResult
-        printPiece _ (xs, len, pred) (Lit str) =
+        printPiece spec r (Lit str) =
             (xs <> str, len + length str)
-        printPiece future (xs, len, pred) (NewLine nl) =
+        printPiece spec r (NewLine nl) =
                 NewLine' -> (xs <> newLine, 0)
                 NewLineAsFarAsPossible -> (xs <> newLine, 0)
           where
             newLine = (xs <> "\n", 0)
+
+        printOther
+            :: String
+            -> (String -> PieceResult)
+            -> PieceResult
+            -> Other
+            -- ^ Previous pretty printed string
+            -> PieceResult
+        printOther spec fun r (Lit str) =
+        printOther spec fun r (Spec) =
 
     toList a = [a]
 
