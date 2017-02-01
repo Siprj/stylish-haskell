@@ -15,17 +15,14 @@ module Language.Haskell.Stylish.Step.Imports
 
 
 --------------------------------------------------------------------------------
+import           Prelude                         hiding (break)
 import           Control.Arrow                   ((&&&))
-import           Control.Monad                   (void)
 import           Data.Char                       (toLower)
-import           Data.List
 import qualified Data.List.NonEmpty              as NEL
-import           Data.List                       (intercalate, sortBy)
-import           Data.Maybe                      (isJust, maybeToList)
+import           Data.List                       (sortBy, foldl')
+import           Data.Maybe                      (maybeToList)
 import           Data.Ord                        (comparing)
 import qualified Language.Haskell.Exts           as H
-import qualified Data.Aeson                      as A
-import qualified Data.Aeson.Types                as A
 import           Data.Monoid                     ((<>), mconcat)
 
 
@@ -37,53 +34,9 @@ import           Language.Haskell.Stylish.Util
 
 --------------------------------------------------------------------------------
 data Options = Options
---    { importAlign    :: ImportAlign
---    , listAlign      :: ListAlign
---    , longListAlign  :: LongListAlign
---    , emptyListAlign :: EmptyListAlign
---    , listPadding    :: ListPadding
---    , separateLists  :: Bool
---    } deriving (Eq, Show)
 
 defaultOptions :: Options
 defaultOptions = Options
---    { importAlign    = Global
---    , listAlign      = AfterAlias
---    , longListAlign  = Inline
---    , emptyListAlign = Inherit
---    , listPadding    = LPConstant 4
---    , separateLists  = True
---    }
-
--- data ListPadding
---     = LPConstant Int
---     | LPModuleName
---     deriving (Eq, Show)
---
--- data ImportAlign
---     = Global
---     | File
---     | Group
---     | None
---     deriving (Eq, Show)
---
--- data ListAlign
---     = NewLine
---     | WithAlias
---     | AfterAlias
---     deriving (Eq, Show)
---
--- data EmptyListAlign
---     = Inherit
---     | RightAfter
---     deriving (Eq, Show)
---
--- data LongListAlign
---     = Inline
---     | InlineWithBreak
---     | InlineToMultiline
---     | Multiline
---     deriving (Eq, Show)
 
 --------------------------------------------------------------------------------
 imports :: H.Module l -> [H.ImportDecl l]
@@ -122,6 +75,7 @@ compareImportSpecs = comparing key
 
 --------------------------------------------------------------------------------
 -- | Sort the input spec list inside an 'H.ImportDecl'
+-- TODO: sort subspecs
 sortImportSpecs :: H.ImportDecl l -> H.ImportDecl l
 sortImportSpecs imp = imp {H.importSpecs = sort' <$> H.importSpecs imp}
   where
@@ -138,140 +92,6 @@ compareImportSubSpecs = comparing key
     key :: H.CName l -> (Int, Bool, String)
     key (H.ConName _ x) = (0, False,        nameToString x)
     key (H.VarName _ x) = (1, isOperator x, nameToString x)
-
-
---------------------------------------------------------------------------------
--- | By default, haskell-src-exts pretty-prints
---
--- > import Foo (Bar(..))
---
--- but we want
---
--- > import Foo (Bar (..))
---
--- instead.
---prettyImportSpec :: (Ord l) => Bool -> H.ImportSpec l -> String
---prettyImportSpec separate = prettyImportSpec'
---  where
---    prettyImportSpec' (H.IThingAll  _ n)     = H.prettyPrint n ++ sep "(..)"
---    prettyImportSpec' (H.IThingWith _ n cns) = H.prettyPrint n
---        ++ sep "("
---        ++ intercalate ", "
---          (map H.prettyPrint $ sortBy compareImportSubSpecs cns)
---        ++ ")"
---    prettyImportSpec' x                      = H.prettyPrint x
---
---    sep = if separate then (' ' :) else id
---
---
-----------------------------------------------------------------------------------
---prettyImport :: (Ord l, Show l) =>
---    Int -> Options -> Bool -> Bool -> Int -> H.ImportDecl l -> [String]
---prettyImport columns Options{..} padQualified padName longest imp
---    | (void `fmap` H.importSpecs imp) == emptyImportSpec = emptyWrap
---    | otherwise = case longListAlign of
---        Inline            -> inlineWrap
---        InlineWithBreak   -> longListWrapper inlineWrap inlineWithBreakWrap
---        InlineToMultiline -> longListWrapper inlineWrap inlineToMultilineWrap
---        Multiline         -> longListWrapper inlineWrap multilineWrap
---  where
---    emptyImportSpec = Just (H.ImportSpecList () False [])
---    -- "import" + space + qualifiedLength has space in it.
---    listPadding' = listPaddingValue (6 + 1 + qualifiedLength) listPadding
---      where
---        qualifiedLength =
---            if null qualified then 0 else 1 + sum (map length qualified)
---
---    longListWrapper shortWrap longWrap
---        | listAlign == NewLine
---        || length shortWrap > 1
---        || length (head shortWrap) > columns
---            = longWrap
---        | otherwise = shortWrap
---
---    emptyWrap = case emptyListAlign of
---        Inherit -> inlineWrap
---        RightAfter -> [paddedNoSpecBase ++ " ()"]
---
---    inlineWrap = inlineWrapper
---        $ mapSpecs
---        $ withInit (++ ",")
---        . withHead ("(" ++)
---        . withLast (++ ")")
---
---    inlineWrapper = case listAlign of
---        NewLine    -> (paddedNoSpecBase :) . wrapRest columns listPadding'
---        WithAlias  -> wrap columns paddedBase (inlineBaseLength + 1)
---        -- Add 1 extra space to ensure same padding as in original code.
---        AfterAlias -> withTail (' ' :)
---            . wrap columns paddedBase (afterAliasBaseLength + 1)
---
---    inlineWithBreakWrap = paddedNoSpecBase : wrapRest columns listPadding'
---        ( mapSpecs
---        $ withInit (++ ",")
---        . withHead ("(" ++)
---        . withLast (++ ")"))
---
---    inlineToMultilineWrap
---        | length inlineWithBreakWrap > 2
---        || any ((> columns) . length) (tail inlineWithBreakWrap)
---            = multilineWrap
---        | otherwise = inlineWithBreakWrap
---
---    -- 'wrapRest 0' ensures that every item of spec list is on new line.
---    multilineWrap = paddedNoSpecBase : wrapRest 0 listPadding'
---        ( mapSpecs
---          ( withHead ("( " ++)
---          . withTail (", " ++))
---        ++ [")"])
---
---    paddedBase = base $ padImport $ importName imp
---
---    paddedNoSpecBase = base $ padImportNoSpec $ importName imp
---
---    padImport = if hasExtras && padName
---        then padRight longest
---        else id
---
---    padImportNoSpec = if (isJust (H.importAs imp) || hasHiding) && padName
---        then padRight longest
---        else id
---
---    base' baseName importAs hasHiding' = unwords $ concat $ filter (not . null)
---        [ ["import"]
---        , qualified
---        , show <$> maybeToList (H.importPkg imp)
---        , [baseName]
---        , importAs
---        , hasHiding'
---        ]
---
---    base baseName = base' baseName
---        ["as " ++ as | H.ModuleName _ as <- maybeToList $ H.importAs imp]
---        ["hiding" | hasHiding]
---
---    inlineBaseLength = length $ base' (padImport $ importName imp) [] []
---
---    afterAliasBaseLength = length $ base' (padImport $ importName imp)
---        ["as " ++ as | H.ModuleName _ as <- maybeToList $ H.importAs imp] []
---
---    (hasHiding, importSpecs) = case H.importSpecs imp of
---        Just (H.ImportSpecList _ h l) -> (h, Just l)
---        _                             -> (False, Nothing)
---
---    hasExtras = isJust (H.importAs imp) || isJust (H.importSpecs imp)
---
---    qualified
---        | H.importQualified imp = ["qualified"]
---        | padQualified          = ["         "]
---        | otherwise             = []
---
---    mapSpecs f = case importSpecs of
---        Nothing -> []     -- Import everything
---        Just [] -> ["()"] -- Instance only imports
---        Just is -> f $ map (prettyImportSpec separateLists) is
-
---import qualified Module.Name (spec, Spec(SubSpec, subSpec))
 
 data Import = Import
     { _padQualified :: Qualified
@@ -358,17 +178,8 @@ specToEither (H.IThingAll  _ x) = Left (H.prettyPrint x, [])
 specToEither (H.IThingWith _ x sscs) = Left (H.prettyPrint x, sscs)
 specToEither x = Right $ H.prettyPrint x
 
-getString :: PieceResult -> String
-getString (str, _, _) = str
-
-getStringAfterBreak :: PieceResult -> String
-getStringAfterBreak (_, _, str) = str
-
 setBreak :: Break -> PieceResult -> PieceResult
 setBreak br (str, _, str') = (str, br, str')
-
-getBreak :: PieceResult -> Break
-getBreak (_, br, _) = br
 
 onHead
     :: (a -> a)
@@ -384,14 +195,11 @@ prettyMy GroupStats{..} Options'{..} imps =
     prettyPrintWhole Import{..} imp@H.ImportDecl{..} =
         lines . expandBreaks $ case importSpecs of
             Nothing -> strToPieceResult prettyPrintBase
-            Just (H.ImportSpecList _ _ []) -> prettyEmpty
             Just (H.ImportSpecList _ _ xs) ->
                 if isOverflowing $ short xs
                     then long xs
                     else short xs
       where
-        prettyEmpty = prettyPieces "" _formatIfSpecsEmpty base
-
         strToPieceResult a = (a, Nill, "") NEL.:| []
 
         short xs = prettySpec xs _shortSpec base
@@ -415,6 +223,8 @@ prettyMy GroupStats{..} Options'{..} imps =
             -> Spec
             -> NEL.NonEmpty PieceResult
             -> NEL.NonEmpty PieceResult
+        prettySpec [] Spec{..} r =
+            NEL.reverse $ prettyPieces "" _formatIfSpecsEmpty r
         prettySpec (x : xs) spec@Spec{..} r = NEL.reverse
             . prettySpec' xs spec $ case specToEither x of
                 Right specStr ->
@@ -512,7 +322,7 @@ prettyMy GroupStats{..} Options'{..} imps =
             -- ^ Previous pretty prettyed string
             -> NEL.NonEmpty PieceResult
             -> NEL.NonEmpty PieceResult
-        prettyOther spec fun (Lit str) r = onHead (fun str) r
+        prettyOther _ fun (Lit str) r = onHead (fun str) r
         prettyOther spec fun (SpecAlias) r = onHead (fun spec) r
 
         emptyRes = ("", Nill, "")
@@ -534,11 +344,11 @@ prettyMy GroupStats{..} Options'{..} imps =
         expandBreaks' [] r = r
         expandBreaks' ((str, br, strAfterBr) : xs) r =
             case br of
-                Break -> expandBreaks' xs $ break r
+                Break -> expandBreaks' xs . break $ addStr str r
                 BreakAFAP -> if willNextOverflow r xs
-                    then expandBreaks' xs $ break r
-                    else expandBreaks' xs r
-                Nill -> expandBreaks' xs r
+                    then expandBreaks' xs $ break $ addStr str r
+                    else expandBreaks' xs $ addStr str r
+                Nill -> expandBreaks' xs $ addStr str r
           where
             break = addStr strAfterBr . addNewLine
 
@@ -548,7 +358,7 @@ prettyMy GroupStats{..} Options'{..} imps =
         addStr str (str', len) = (str' <> str, len + length str)
         getLen (_, len) = len
 
-        willNextOverflow r [] = False
+        willNextOverflow _ [] = False
         willNextOverflow r ((str, _, _) : _) =
             if getLen (addStr str r) > columns
                 then True
@@ -563,7 +373,7 @@ prettyOnlyBase
     -> Import
     -> H.ImportDecl LineBlock
     -> (String, Stats)
-prettyOnlyBase padQualified (Import qualified _ _ _) imp =
+prettyOnlyBase padQualified (Import _ _ _ _) imp =
     let afterNameLength = length $ unwords moduleName
         afterAliasLenght = length $ unwords alias
         afterBaseLength = length $ unwords base
@@ -576,8 +386,9 @@ prettyOnlyBase padQualified (Import qualified _ _ _) imp =
        )
   where
     isImporQualified = H.importQualified imp
-    qualified True = "qualified"
-    qualified False = if padQualified
+
+    qualified' True = "qualified"
+    qualified' False = if padQualified
         then "         "
         else ""
 
@@ -585,7 +396,7 @@ prettyOnlyBase padQualified (Import qualified _ _ _) imp =
 
     moduleName =
         [ "import"
-        , qualified isImporQualified
+        , qualified' isImporQualified
         , moduleNameRec $ H.importModule imp
         ]
     alias = moduleName
@@ -604,7 +415,7 @@ prettyOnlyBase padQualified (Import qualified _ _ _) imp =
 prettyImportGroup :: Int -> GroupStats -> Options' -> Int
                   -> [H.ImportDecl LineBlock]
                   -> Lines
-prettyImportGroup columns globalStats options longest imps =
+prettyImportGroup _columns globalStats options _longest imps =
     prettyMy globalStats options $ sortBy compareImports imps
 
 
@@ -612,6 +423,7 @@ prettyImportGroup columns globalStats options longest imps =
 step :: Int -> Options -> Step
 step columns = makeStep "Imports" . step' columns
 
+iM :: Import
 iM = Import
     { _padQualified = FilePad
     , _formatIfSpecsEmpty = [Other' $ Lit " ()"]
@@ -625,7 +437,7 @@ oP = Options' iM 80
 
 --------------------------------------------------------------------------------
 step' :: Int -> Options -> Lines -> Module -> Lines
-step' columns align ls (module', _) = applyChanges
+step' columns _align ls (module', _) = applyChanges
     [ change block . const $
         prettyImportGroup columns (groupStats importGroup) oP longest importGroup
     | (block, importGroup) <- groups
