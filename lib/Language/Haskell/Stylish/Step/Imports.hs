@@ -18,6 +18,7 @@ import           Control.Arrow                   ((&&&))
 import           Control.Monad                   (void)
 import           Data.Char                       (toLower)
 import           Data.List
+import qualified Data.List.NonEmpty              as NEL
 import           Data.List                       (intercalate, sortBy)
 import           Data.Maybe                      (isJust, maybeToList)
 import           Data.Ord                        (comparing)
@@ -298,10 +299,10 @@ data Piece
 
 data Other
     = Lit String
-    | Spec
+    | SpecAlias
 
 data NewLine
-    | NewLine [Other]
+    = NewLine [Other]
     | NewLineAsFarAsPossible [Other]
 
 data Break
@@ -310,7 +311,7 @@ data Break
     | Nill
 
 -- | (lines delimited by '\n', length of current line)
-type PieceResult = (String, Break)
+type PieceResult = (String, Break, String)
 
 data Qualified = GlobalPad | FilePad | GroupPad | NoPad
 
@@ -346,12 +347,10 @@ data Options' = Options'
     }
 
 addString :: String -> PieceResult -> PieceResult
-addString str2 (str, len, break) =
-    (str <> str2, len + length str2, break)
+addString str2 (str, br, str') = (str <> str2, br, str')
 
 addStringAfterBreak :: String -> PieceResult -> PieceResult
-addStringAfterBreak str2 (str, br, str') =
-    (str, br, str' <> str2)
+addStringAfterBreak str2 (str, br, str') = (str, br, str' <> str2)
 
 specToEither :: H.ImportSpec a -> Either (String, [H.CName a]) String
 specToEither (H.IThingAll  _ x) = Left (H.prettyPrint x, [])
@@ -364,8 +363,17 @@ getString (str, _, _) = str
 getStringAfterBreak :: PieceResult -> String
 getStringAfterBreak (_, _, str) = str
 
+setBreak :: Break -> PieceResult -> PieceResult
+setBreak br (str, _, str') = (str, br, str')
+
 getBreak :: PieceResult -> Break
 getBreak (_, br, _) = br
+
+onHead
+    :: (a -> a)
+    -> NEL.NonEmpty a
+    -> NEL.NonEmpty a
+onHead f (a NEL.:| as)  = (f a NEL.:| as)
 
 prettyMy :: GroupStats -> Options' -> [H.ImportDecl LineBlock] -> Lines
 prettyMy GroupStats{..} Options'{..} imps =
@@ -393,9 +401,19 @@ prettyMy GroupStats{..} Options'{..} imps =
         base = [(prettyPrintBase, Nill, "")]
 
 -- {{{ Printing short ---------------------------------------------------------
+            :: [Piece]
+            -- ^ Pieces which should be printed
+            -> String
+            -- ^ String which will replace Spec
+            -> [PieceResult]
+            -- ^ Previsou steps
+            -> [PieceResult]
 
-        printShort :: [H.ImportSpec a] -> Spec -> PieceResult
-        printShort (x : xs) spec@Spec{..} =
+        printShort :: [H.ImportSpec a] -> Spec -> NEL.NonEmpty PieceResult
+        printShort (x : xs) spec@Spec{..} = case specToEither x of
+            Right specStr -> printPieces specStr addString res
+            Left (specStr, sscs) ->
+
             let res = printPieces specsBefore False base
             in printShort' xs spec $ case specToEither x of
                 Right specStr -> addString specStr res
@@ -435,9 +453,8 @@ prettyMy GroupStats{..} Options'{..} imps =
             printPieces subSpecsAfter pred r
         printSubSpec' (x : xs) subSpec@SubSpec{..} pred r =
             printSubSpec' xs subSpec pred . addString (H.prettyPrint x)
-                $
-                    then nullNewLineFlag $ printPieces subSpecsAfterBreak pred r
-                    else printPieces subSpecsAfter pred r
+                $ then nullNewLineFlag $ printPieces subSpecsAfterBreak pred r
+                  else printPieces subSpecsAfter pred r
 
         printPieces
             :: [Piece]
@@ -447,7 +464,7 @@ prettyMy GroupStats{..} Options'{..} imps =
             -> [PieceResult]
             -- ^ Previsou steps
             -> [PieceResult]
-        printPieces ps spec base = foldl' (printPiece spec) base ps
+        printPieces ps spec base r = foldl' (printPiece spec) base ps
 
 -- }}} Printing sub spec ------------------------------------------------------
 -- {{{ Printing pieces --------------------------------------------------------
@@ -455,27 +472,31 @@ prettyMy GroupStats{..} Options'{..} imps =
         printPiece
             :: String
             -- ^ String which will replace Spec
-            -> PieceResult
             -> Piece
             -- ^ Previous pretty printed string
-            -> PieceResult
-        printPiece spec r (Lit str) =
-            (xs <> str, len + length str)
-        printPiece spec r (NewLine nl) =
-                NewLine' -> (xs <> newLine, 0)
-                NewLineAsFarAsPossible -> (xs <> newLine, 0)
+            -> NEL.NonEmpty PieceResult
+            -> NEL.NonEmpty PieceResult
+        printPiece spec (Other' o) =
+            printOther spec addString o
+        printPiece spec (NewLine' nl) r = case nl of
+            NewLine ops -> emptyRes NEL.<| setBreak (setBreak Break
+                $ (foldl' (printOther spec addStringAfterBreak) r ops))
+            NewLineAsFarAsPossible ops -> emptyRes NEL.<| (setBreak BreakAFAP
+                $ (foldl' (printOther spec addStringAfterBreak) r ops))
           where
             newLine = (xs <> "\n", 0)
 
         printOther
             :: String
-            -> (String -> PieceResult)
-            -> PieceResult
+            -> (String -> PieceResult -> PieceResult)
+            -> NEL.NonEmpty PieceResult
             -> Other
             -- ^ Previous pretty printed string
-            -> PieceResult
-        printOther spec fun r (Lit str) =
-        printOther spec fun r (Spec) =
+            -> NEL.NonEmpty PieceResult
+        printOther spec fun r (Lit str) = onHead (fun str) r
+        printOther spec fun r (Spec) = onHead (fun spec) r
+
+        emptyRes = ("", Nill, "")
 
     toList a = [a]
 
