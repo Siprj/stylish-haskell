@@ -79,8 +79,8 @@ compareImportSpecs = comparing key
 sortImportSpecs :: H.ImportDecl l -> H.ImportDecl l
 sortImportSpecs imp = imp {H.importSpecs = sort' <$> H.importSpecs imp}
   where
-    sort' (H.ImportSpecList l h specs) = H.ImportSpecList l h $
-        sortBy compareImportSpecs specs
+    sort' (H.ImportSpecList l h specs) = H.ImportSpecList l h
+        . fmap sortImportSubSpecs $ sortBy compareImportSpecs specs
 
 
 --------------------------------------------------------------------------------
@@ -92,6 +92,11 @@ compareImportSubSpecs = comparing key
     key :: H.CName l -> (Int, Bool, String)
     key (H.ConName _ x) = (0, False,        nameToString x)
     key (H.VarName _ x) = (1, isOperator x, nameToString x)
+
+sortImportSubSpecs :: H.ImportSpec l -> H.ImportSpec l
+sortImportSubSpecs (H.IThingWith l n x) =
+    H.IThingWith l n $ sortBy compareImportSubSpecs x
+sortImportSubSpecs x = x
 
 data Import = Import
     { _padQualified :: Qualified
@@ -117,19 +122,23 @@ data SubSpec = SubSpec
 data Piece
     = NewLine' NewLine
     | Other' Other
+  deriving (Show)
 
 data Other
     = Lit String
     | SpecAlias
+  deriving (Show)
 
 data NewLine
     = NewLine [Other]
     | NewLineAsFarAsPossible [Other]
+  deriving (Show)
 
 data Break
     = Break
     | BreakAFAP
     | Nill
+  deriving (Show)
 
 -- | (lines delimited by '\n', length of current line)
 type PieceResult = (String, Break, String)
@@ -228,10 +237,10 @@ prettyMy GroupStats{..} Options'{..} imps =
         prettySpec (x : xs) spec@Spec{..} r = NEL.reverse
             . prettySpec' xs spec $ case specToEither x of
                 Right specStr ->
-                    prettyPieces specStr specsOther r
+                    prettyPieces specStr specsBefore r
                 Left (specStr, sscs) ->
                     prettySubSpec sscs subSpecs
-                    $ prettyPieces specStr specsOther r
+                    $ prettyPieces specStr specsBefore r
 
         prettySpec'
             :: [H.ImportSpec a]
@@ -344,13 +353,14 @@ prettyMy GroupStats{..} Options'{..} imps =
         expandBreaks' [] r = r
         expandBreaks' ((str, br, strAfterBr) : xs) r =
             case br of
-                Break -> expandBreaks' xs . break $ addStr str r
-                BreakAFAP -> if willNextOverflow r xs
-                    then expandBreaks' xs $ break $ addStr str r
-                    else expandBreaks' xs $ addStr str r
-                Nill -> expandBreaks' xs $ addStr str r
+                Break -> expandBreaks' xs . break $ current
+                BreakAFAP -> if willNextOverflow current xs
+                    then expandBreaks' xs $ break current
+                    else expandBreaks' xs current
+                Nill -> expandBreaks' xs current
           where
             break = addStr strAfterBr . addNewLine
+            current = addStr str r
 
         addNewLine :: (String, Int) -> (String, Int)
         addNewLine (str, _) = (str <> newLine, 0)
@@ -427,10 +437,26 @@ iM :: Import
 iM = Import
     { _padQualified = FilePad
     , _formatIfSpecsEmpty = [Other' $ Lit " ()"]
-    , _shortSpec = Spec [Other' $ Lit " "] [Other' $ Lit " "] [Other' $ Lit " "]
-        (SubSpec [Other' $ Lit " "] [Other' $ Lit " "] [Other' $ Lit " "] [Other' $ Lit " "])
-    , _longSpec =  Spec [Other' $ Lit " "] [Other' $ Lit " "] [Other' $ Lit " "]
-        (SubSpec [Other' $ Lit " "] [Other' $ Lit " "] [Other' $ Lit " "] [Other' $ Lit " "])
+    , _shortSpec = Spec
+        [ Other' $ Lit " (", Other' SpecAlias]
+        [Other' $ Lit ")"]
+        [Other' $ Lit ", ", Other' SpecAlias]
+        ( SubSpec
+            [Other' $ Lit "(", Other' SpecAlias]
+            [Other' $ Lit ")"]
+            [Other' $ Lit ", ", Other' SpecAlias]
+            [Other' $ Lit "    ()"]
+        )
+    , _longSpec = Spec
+        [NewLine' $ NewLine [], Other' $ Lit "    ( ", Other' SpecAlias]
+        [Other' $ Lit ")"]
+        [Other' $ Lit ", ", Other' SpecAlias, NewLine' $ NewLineAsFarAsPossible [Lit "    "]]
+        ( SubSpec
+            [Other' $ Lit " "]
+            [Other' $ Lit " "]
+            [Other' $ Lit " "]
+            [Other' $ Lit " "]
+        )
     }
 oP :: Options'
 oP = Options' iM 80
