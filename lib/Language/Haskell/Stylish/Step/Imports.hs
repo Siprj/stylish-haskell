@@ -19,7 +19,7 @@ import           Prelude                         hiding (break)
 import           Control.Arrow                   ((&&&))
 import           Data.Char                       (toLower)
 import qualified Data.List.NonEmpty              as NEL
-import           Data.List                       (sortBy, foldl')
+import           Data.List                       (sortBy, foldl', dropWhileEnd)
 import           Data.Maybe                      (maybeToList)
 import           Data.Ord                        (comparing)
 import qualified Language.Haskell.Exts           as H
@@ -31,12 +31,6 @@ import           Language.Haskell.Stylish.Block
 import           Language.Haskell.Stylish.Editor
 import           Language.Haskell.Stylish.Step
 import           Language.Haskell.Stylish.Util
-
---------------------------------------------------------------------------------
-data Options = Options
-
-defaultOptions :: Options
-defaultOptions = Options
 
 --------------------------------------------------------------------------------
 imports :: H.Module l -> [H.ImportDecl l]
@@ -99,11 +93,13 @@ sortImportSubSpecs (H.IThingWith l n x) =
 sortImportSubSpecs x = x
 
 data Import = Import
-    { _padQualified :: Qualified
+    { _padQualified :: Pad
+    , _padModifier :: Pad
     , _formatIfSpecsEmpty :: [Piece]
     , _shortSpec :: Spec
     , _longSpec :: Spec
     }
+  deriving (Show)
 
 data Spec = Spec
     { specsBefore :: [Piece]
@@ -111,6 +107,7 @@ data Spec = Spec
     , specsOther :: [Piece]
     , subSpecs :: SubSpec
     }
+  deriving (Show)
 
 data SubSpec = SubSpec
     { subSpecsBefore :: [Piece]
@@ -118,6 +115,7 @@ data SubSpec = SubSpec
     , subSpecsOther :: [Piece]
     , subSpecsAll :: [Piece]
     }
+  deriving (Show)
 
 data Piece
     = NewLine' NewLine
@@ -126,6 +124,12 @@ data Piece
 
 data Other
     = Lit String
+    | PadToFileModulName
+    | PadToGroupModulName
+    | PadToImportModulName
+    | PadToFileAlias
+    | PadToGroupAlias
+    | PadToImportAlias
     | SpecAlias
   deriving (Show)
 
@@ -143,7 +147,8 @@ data Break
 -- | (lines delimited by '\n', length of current line)
 type PieceResult = (String, Break, String)
 
-data Qualified = GlobalPad | FilePad | GroupPad | NoPad
+data Pad = GlobalPad | FilePad | GroupPad | NoPad
+  deriving (Show, Eq)
 
 -- | Structure holding information about length of individual parts of
 -- pretty printed import.
@@ -160,21 +165,25 @@ data Stats = Stats
     , afterAlias :: Int
     , afterBase :: Int
     }
+  deriving (Show)
 
 data GlobalStats = GlobalStats
     { statsPadQualified :: Bool
     , stats :: [Stats]
     }
+  deriving (Show)
 
 data GroupStats = GroupStats
     { gropuStats :: [Stats]
     , globalStats :: GlobalStats
     }
+  deriving (Show)
 
-data Options' = Options'
-    { importStyle :: Import
-    , columns :: Int
+data Options = Options
+    { columns :: Int
+    , importStyle :: Import
     }
+  deriving (Show)
 
 addString :: String -> PieceResult -> PieceResult
 addString str2 (str, br, str') = (str <> str2, br, str')
@@ -196,20 +205,45 @@ onHead
     -> NEL.NonEmpty a
 onHead f (a NEL.:| as)  = (f a NEL.:| as)
 
-prettyMy :: GroupStats -> Options' -> [H.ImportDecl LineBlock] -> Lines
-prettyMy GroupStats{..} Options'{..} imps =
+prettyMy :: GroupStats -> Options -> [H.ImportDecl LineBlock] -> Lines
+prettyMy GroupStats{..} Options{..} imps =
     mconcat $ fmap (prettyPrintWhole importStyle) imps
   where
     prettyPrintWhole :: Import -> H.ImportDecl LineBlock -> [String]
     prettyPrintWhole Import{..} imp@H.ImportDecl{..} =
-        lines . expandBreaks $ case importSpecs of
+        removeSpaces. lines . expandBreaks $ case importSpecs of
             Nothing -> strToPieceResult prettyPrintBase
             Just (H.ImportSpecList _ _ xs) ->
                 if isOverflowing $ short xs
                     then long xs
-                    else short xs
+                    else short  xs
       where
         strToPieceResult a = (a, Nill, "") NEL.:| []
+
+        removeSpaces xs = fmap (dropWhileEnd (== ' ')) xs
+
+        magic = case _padModifier of
+            GlobalPad -> fileModuleNamePadSize
+            FilePad -> fileModuleNamePadSize
+            GroupPad -> groupModuleNamePadSize
+            NoPad -> 0
+
+        fileModuleNamePadSize =
+            foldl' max 0 . fmap afterModuleName $ stats globalStats
+        fileAliasPadSize =
+            foldl' max 0 . fmap afterAlias $ stats globalStats
+
+        groupModuleNamePadSize =
+            foldl' max 0 $ fmap afterModuleName gropuStats
+        groupAliasPadSize =
+            foldl' max 0 $ fmap afterAlias gropuStats
+
+        importModuleNamePadSize = afterModuleName computeImportStats
+        importAliasPadSize = afterAlias computeImportStats
+        importBasePadSize = afterBase computeImportStats
+
+        computeImportStats =
+            snd $ prettyOnlyBase (NoPad /= _padQualified) importStyle magic imp
 
         short xs = prettySpec xs _shortSpec base
         long xs = prettySpec xs _longSpec base
@@ -219,7 +253,7 @@ prettyMy GroupStats{..} Options'{..} imps =
         prettyPrintBase :: String
         prettyPrintBase =
             let (b, _) = prettyOnlyBase (statsPadQualified globalStats)
-                    importStyle imp
+                    importStyle magic imp
             in b
 
         base :: NEL.NonEmpty PieceResult
@@ -333,6 +367,18 @@ prettyMy GroupStats{..} Options'{..} imps =
             -> NEL.NonEmpty PieceResult
         prettyOther _ fun (Lit str) r = onHead (fun str) r
         prettyOther spec fun (SpecAlias) r = onHead (fun spec) r
+        prettyOther _ fun (PadToFileModulName) r =
+            onHead (fun (replicate fileModuleNamePadSize ' ')) r
+        prettyOther _ fun (PadToGroupModulName) r =
+            onHead (fun (replicate groupModuleNamePadSize ' ')) r
+        prettyOther _ fun (PadToImportModulName) r =
+            onHead (fun (replicate importModuleNamePadSize ' ')) r
+        prettyOther _ fun (PadToFileAlias) r =
+            onHead (fun (replicate fileAliasPadSize ' ')) r
+        prettyOther _ fun (PadToGroupAlias) r =
+            onHead (fun (replicate groupAliasPadSize ' ')) r
+        prettyOther _ fun (PadToImportAlias) r =
+            onHead (fun (replicate importAliasPadSize ' ')) r
 
         emptyRes = ("", Nill, "")
 
@@ -381,9 +427,11 @@ prettyMy GroupStats{..} Options'{..} imps =
 prettyOnlyBase
     :: Bool
     -> Import
+    -> Int
+    -- ^ Pad inmpor modifier to some colum
     -> H.ImportDecl LineBlock
     -> (String, Stats)
-prettyOnlyBase padQualified (Import _ _ _ _) imp =
+prettyOnlyBase padQualified (Import _ _ _ _ _) padModifierColum imp =
     let afterNameLength = length $ unwords moduleName
         afterAliasLenght = length $ unwords alias
         afterBaseLength = length $ unwords base
@@ -404,12 +452,18 @@ prettyOnlyBase padQualified (Import _ _ _ _) imp =
 
     moduleNameRec (H.ModuleName _ n) = n
 
+    padModifier = if len < padModifierColum
+        then [replicate (padModifierColum - len - 1) ' ']
+        else []
+      where
+        len = length (unwords moduleName)
+
     moduleName =
         [ "import"
         , qualified' isImporQualified
         , moduleNameRec $ H.importModule imp
         ]
-    alias = moduleName
+    alias = moduleName <> padModifier
         <> ["as " <> moduleNameRec x | x <- maybeToList $ H.importAs imp]
     base = alias
         <> if hasHiding
@@ -422,7 +476,7 @@ prettyOnlyBase padQualified (Import _ _ _ _) imp =
 
 
 --------------------------------------------------------------------------------
-prettyImportGroup :: Int -> GroupStats -> Options' -> Int
+prettyImportGroup :: Int -> GroupStats -> Options -> Int
                   -> [H.ImportDecl LineBlock]
                   -> Lines
 prettyImportGroup _columns globalStats options _longest imps =
@@ -433,24 +487,25 @@ prettyImportGroup _columns globalStats options _longest imps =
 step :: Int -> Options -> Step
 step columns = makeStep "Imports" . step' columns
 
-iM :: Import
-iM = Import
-    { _padQualified = FilePad
+defaultOptions :: Options
+defaultOptions = Options 80 Import
+    { _padQualified = GlobalPad
+    , _padModifier = GlobalPad
     , _formatIfSpecsEmpty = [Other' $ Lit " ()"]
     , _shortSpec = Spec
         [ Other' $ Lit " (", Other' SpecAlias]
-        [Other' $ Lit ")"]
-        [Other' $ Lit ", ", Other' SpecAlias]
+        [ Other' $ Lit ")"]
+        [ Other' $ Lit ", ", Other' SpecAlias]
         ( SubSpec
             [Other' $ Lit "(", Other' SpecAlias]
             [Other' $ Lit ")"]
             [Other' $ Lit ", ", Other' SpecAlias]
-            [Other' $ Lit "    ()"]
+            [Other' $ Lit " (..)"]
         )
     , _longSpec = Spec
-        [NewLine' $ NewLine [], Other' $ Lit "    ( ", Other' SpecAlias]
-        [Other' $ Lit ")"]
-        [Other' $ Lit ", ", Other' SpecAlias, NewLine' $ NewLineAsFarAsPossible [Lit "    "]]
+        [ Other' $ Lit " (", Other' SpecAlias]
+        [ Other' SpecAlias, Other' $ Lit ")"]
+        [ Other' $ Lit ", ", NewLine' (NewLineAsFarAsPossible [PadToImportAlias, Lit "  "]), Other' SpecAlias]
         ( SubSpec
             [Other' $ Lit " "]
             [Other' $ Lit " "]
@@ -458,32 +513,33 @@ iM = Import
             [Other' $ Lit " "]
         )
     }
-oP :: Options'
-oP = Options' iM 80
+
+
 
 --------------------------------------------------------------------------------
 step' :: Int -> Options -> Lines -> Module -> Lines
-step' columns _align ls (module', _) = applyChanges
+step' _columns o@(Options c i) ls (module', _) = applyChanges
     [ change block . const $
-        prettyImportGroup columns (groupStats importGroup) oP longest importGroup
+        prettyImportGroup c (groupStats importGroup) o longest importGroup
     | (block, importGroup) <- groups
     ]
     ls
   where
     imps    = map sortImportSpecs $ imports $ fmap linesFromSrcSpan module'
     longest = longestImport imps
-    groups  = groupAdjacent [(H.ann i, i) | i <- imps]
+    groups  = groupAdjacent [(H.ann i', i') | i' <- imps]
 
     groupStats :: [H.ImportDecl LineBlock] -> GroupStats
     groupStats group' = GroupStats
         { gropuStats =
-            fmap (snd . prettyOnlyBase (shouldPadQualified group') iM) group'
+            fmap (snd . prettyOnlyBase (shouldPadQualified group') i 0) group'
         , globalStats = globalStats' group'
         }
 
     globalStats' :: [H.ImportDecl LineBlock] -> GlobalStats
     globalStats' group' = GlobalStats
-        { stats = map (snd . prettyOnlyBase (shouldPadQualified group') iM) imps
+        { stats =
+            map (snd . prettyOnlyBase (shouldPadQualified group') i 0) imps
         , statsPadQualified = shouldPadQualified group'
         }
 
@@ -494,17 +550,3 @@ step' columns _align ls (module', _) = applyChanges
         NoPad -> False
 
     qualOpt = FilePad
-
---------------------------------------------------------------------------------
---listPaddingValue :: Int -> ListPadding -> Int
---listPaddingValue _ (LPConstant n) = n
---listPaddingValue n LPModuleName   = n
-
---------------------------------------------------------------------------------
-
---instance A.FromJSON ListPadding where
---    parseJSON (A.String "module_name") = return LPModuleName
---    parseJSON (A.Number n) | n' >= 1   = return $ LPConstant n'
---      where
---        n' = truncate n
---    parseJSON v                        = A.typeMismatch "'module_name' or >=1 number" v

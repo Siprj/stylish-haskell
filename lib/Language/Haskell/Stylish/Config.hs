@@ -181,9 +181,7 @@ parseSimpleAlign c o = SimpleAlign.step
 parseImports :: Config -> A.Object -> A.Parser Step
 parseImports config o = Imports.step
     <$> pure (configColumns config)
-    <*> (return Imports.Options)
-  where
-    def f = f Imports.defaultOptions
+    <*> (return Imports.defaultOptions)
 
 --------------------------------------------------------------------------------
 parseLanguagePragmas :: Config -> A.Object -> A.Parser Step
