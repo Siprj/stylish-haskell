@@ -508,7 +508,7 @@ defaultOptions = Options 80 Import
         )
     , _longSpec = Spec
         [ Other' $ Lit " (", Other' SpecAlias]
-        [ Other' SpecAlias, Other' $ Lit ")"]
+        [ Other' $ Lit ")"]
         [ Other' $ Lit ", ", NewLine' (NewLineAsFarAsPossible [PadToAlias, Lit "  "]), Other' SpecAlias]
         ( SubSpec
             [Other' $ Lit "(", Other' SpecAlias]
