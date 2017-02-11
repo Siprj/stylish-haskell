@@ -32,7 +32,7 @@ tests = testGroup "Language.Haskell.Stylish.Step.Imports.Tests"
     , testCase "case 06" case06
     , testCase "case 07" case07
     , testCase "case 08" case08
---    , testCase "case 09" case09
+    , testCase "case 09" case09
 --    , testCase "case 10" case10
 --    , testCase "case 11" case11
 --    , testCase "case 12" case12
@@ -251,7 +251,6 @@ case08Options =
 
 case08 :: Assertion
 case08 = expected
-    -- @=? testStep (step 80 $ Options Global WithAlias Inline Inherit (LPConstant 4) True) input
     @=? testStep (step 80 case08Options) input
   where
     expected = unlines
@@ -272,40 +271,58 @@ case08 = expected
         ]
 
 
-----------------------------------------------------------------------------------
---case09 :: Assertion
---case09 = expected
---    @=? testStep (step 80 $ Options Global WithAlias Multiline Inherit (LPConstant 4) True) input
---  where
---    expected = unlines
---        [ "module Herp where"
---        , ""
---        , "import           Control.Monad"
---        , "import           Data.List           as List"
---        , "    ( concat"
---        , "    , foldl"
---        , "    , foldr"
---        , "    , head"
---        , "    , init"
---        , "    , last"
---        , "    , length"
---        , "    , map"
---        , "    , null"
---        , "    , reverse"
---        , "    , tail"
---        , "    , (++)"
---        , "    )"
---        , "import           Data.Map            (Map, insert, lookup, (!))"
---        , "import qualified Data.Map            as M"
---        , "import           Only.Instances      ()"
---        , ""
---        , "import           Foo                 (Bar (..))"
---        , "import           Herp.Derp.Internals hiding (foo)"
---        , ""
---        , "herp = putStrLn \"import Hello world\""
---        ]
---
---
+--------------------------------------------------------------------------------
+case09Options :: Options
+case09Options =
+    let (Options column style) = defaultOptions
+    in Options column style
+    { _padQualified = GlobalPad
+    , _padModifier = GlobalPad
+    , _longSpec = Spec
+        [ NewLine' $ NewLine [], Other' $  Lit "    ( ", Other' SpecAlias]
+        [ NewLine' $ NewLine [], Other' $ Lit "    ", Other' $ Lit ")"]
+        [ NewLine' $ NewLine [Lit "    , "], Other' SpecAlias]
+        ( SubSpec
+            [Other' $ Lit "(", Other' SpecAlias]
+            [Other' $ Lit ")"]
+            [Other' $ Lit ", ", Other' SpecAlias]
+            [Other' $ Lit " (..)"]
+        )
+    }
+
+case09 :: Assertion
+case09 = expected @=? testStep (step 80 case09Options) input
+    -- @=? testStep (step 80 $ Options Global WithAlias Multiline Inherit (LPConstant 4) True) input
+  where
+    expected = unlines
+        [ "module Herp where"
+        , ""
+        , "import           Control.Monad"
+        , "import           Data.List           as List"
+        , "    ( concat"
+        , "    , foldl"
+        , "    , foldr"
+        , "    , head"
+        , "    , init"
+        , "    , last"
+        , "    , length"
+        , "    , map"
+        , "    , null"
+        , "    , reverse"
+        , "    , tail"
+        , "    , (++)"
+        , "    )"
+        , "import           Data.Map            (Map, insert, lookup, (!))"
+        , "import qualified Data.Map            as M"
+        , "import           Only.Instances      ()"
+        , ""
+        , "import           Foo                 (Bar (..))"
+        , "import           Herp.Derp.Internals hiding (foo)"
+        , ""
+        , "herp = putStrLn \"import Hello world\""
+        ]
+
+
 ----------------------------------------------------------------------------------
 --case10 :: Assertion
 --case10 = expected
