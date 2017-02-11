@@ -6,6 +6,11 @@ module Language.Haskell.Stylish.Step.Imports
     ( Options (..)
     , Import (..)
     , Pad (..)
+    , Other (..)
+    , Piece (..)
+    , Spec (..)
+    , SubSpec (..)
+    , NewLine (..)
     , defaultOptions
     --, ImportAlign (..)
     --, ListAlign (..)
@@ -126,12 +131,10 @@ data Piece
 
 data Other
     = Lit String
-    | PadToFileModulName
-    | PadToGroupModulName
-    | PadToImportModulName
-    | PadToFileAlias
-    | PadToGroupAlias
-    | PadToImportAlias
+    | PadToModulName
+    | PadToAlias
+    | PadToModulePad
+    | PadToBase
     | SpecAlias
   deriving (Show)
 
@@ -155,11 +158,11 @@ data Pad = GlobalPad | FilePad | GroupPad | NoPad
 -- | Structure holding information about length of individual parts of
 -- pretty printed import.
 -- > import qualified Module.Name   as Alias hiding (Foo (Bar, Baz))
---                              |  |     |      |
--- afterModuleName -------------+  |     |      |
--- afterModulePad -----------------+     |      |
--- afterAlias ---------------------------+      |
--- afterBase  ----------------------------------+
+--                              |  |       |      |
+-- afterModuleName -------------+  |       |      |
+-- afterModulePad -----------------+       |      |
+-- afterAlias -----------------------------+      |
+-- afterBase  ------------------------------------+
 --
 -- If the hiding part is missing afterBase is equal to afterAlias.
 -- If the as alias is missing afterAlias is equal to afterModuleName.
@@ -234,15 +237,12 @@ prettyMy GroupStats{..} Options{..} imps =
 
         fileModuleNamePadSize =
             foldl' max 0 . fmap afterModuleName $ stats globalStats
-        fileAliasPadSize =
-            foldl' max 0 . fmap afterAlias $ stats globalStats
 
         groupModuleNamePadSize =
             foldl' max 0 $ fmap afterModuleName gropuStats
-        groupAliasPadSize =
-            foldl' max 0 $ fmap afterAlias gropuStats
 
         importModuleNamePadSize = afterModuleName computeImportStats
+        importModulePadModulePadSize = afterModulePad computeImportStats
         importAliasPadSize = afterAlias computeImportStats
         importBasePadSize = afterBase computeImportStats
 
@@ -372,18 +372,14 @@ prettyMy GroupStats{..} Options{..} imps =
             -> NEL.NonEmpty PieceResult
         prettyOther _ fun (Lit str) r = onHead (fun str) r
         prettyOther spec fun (SpecAlias) r = onHead (fun spec) r
-        prettyOther _ fun (PadToFileModulName) r =
-            onHead (fun (replicate fileModuleNamePadSize ' ')) r
-        prettyOther _ fun (PadToGroupModulName) r =
-            onHead (fun (replicate groupModuleNamePadSize ' ')) r
-        prettyOther _ fun (PadToImportModulName) r =
+        prettyOther _ fun (PadToModulName) r =
             onHead (fun (replicate importModuleNamePadSize ' ')) r
-        prettyOther _ fun (PadToFileAlias) r =
-            onHead (fun (replicate fileAliasPadSize ' ')) r
-        prettyOther _ fun (PadToGroupAlias) r =
-            onHead (fun (replicate groupAliasPadSize ' ')) r
-        prettyOther _ fun (PadToImportAlias) r =
+        prettyOther _ fun (PadToModulePad) r =
+            onHead (fun (replicate importModulePadModulePadSize ' ')) r
+        prettyOther _ fun (PadToAlias) r =
             onHead (fun (replicate importAliasPadSize ' ')) r
+        prettyOther _ fun (PadToBase) r =
+            onHead (fun (replicate importBasePadSize ' ')) r
 
         emptyRes = ("", Nill, "")
 
@@ -438,7 +434,7 @@ prettyOnlyBase
     -> (String, Stats)
 prettyOnlyBase padQualified (Import _ _ _ _ _) padModifierColum imp =
     let afterNameLength = length $ unwords moduleName
-        afterModulePad = length $ unwords modulePad
+        afterModulePad = (length $ unwords modulePad) - 1
         afterAliasLenght = length $ unwords alias
         afterBaseLength = length $ unwords base
     in ( unwords base
@@ -513,7 +509,7 @@ defaultOptions = Options 80 Import
     , _longSpec = Spec
         [ Other' $ Lit " (", Other' SpecAlias]
         [ Other' SpecAlias, Other' $ Lit ")"]
-        [ Other' $ Lit ", ", NewLine' (NewLineAsFarAsPossible [PadToImportAlias, Lit "  "]), Other' SpecAlias]
+        [ Other' $ Lit ", ", NewLine' (NewLineAsFarAsPossible [PadToAlias, Lit "  "]), Other' SpecAlias]
         ( SubSpec
             [Other' $ Lit "(", Other' SpecAlias]
             [Other' $ Lit ")"]

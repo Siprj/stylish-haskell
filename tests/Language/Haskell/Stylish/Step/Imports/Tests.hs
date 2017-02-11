@@ -237,6 +237,16 @@ case08Options =
     in Options column style
     { _padQualified = FilePad
     , _padModifier = FilePad
+    , _longSpec = Spec
+        [ Other' $ Lit " (", Other' SpecAlias]
+        [ Other' SpecAlias, Other' $ Lit ")"]
+        [ Other' $ Lit ", ", NewLine' (NewLineAsFarAsPossible [PadToModulePad , Lit "  "]), Other' SpecAlias]
+        ( SubSpec
+            [Other' $ Lit "(", Other' SpecAlias]
+            [Other' $ Lit ")"]
+            [Other' $ Lit ", ", Other' SpecAlias]
+            [Other' $ Lit " (..)"]
+        )
     }
 
 case08 :: Assertion
