@@ -4,6 +4,8 @@
 --------------------------------------------------------------------------------
 module Language.Haskell.Stylish.Step.Imports
     ( Options (..)
+    , Import (..)
+    , Pad (..)
     , defaultOptions
     --, ImportAlign (..)
     --, ListAlign (..)
@@ -152,9 +154,10 @@ data Pad = GlobalPad | FilePad | GroupPad | NoPad
 
 -- | Structure holding information about length of individual parts of
 -- pretty printed import.
--- > import qualified Module.Name as Alias hiding (Foo (Bar, Baz))
---                              |        |      |
--- afterModuleName -------------+        |      |
+-- > import qualified Module.Name   as Alias hiding (Foo (Bar, Baz))
+--                              |  |     |      |
+-- afterModuleName -------------+  |     |      |
+-- afterModulePad -----------------+     |      |
 -- afterAlias ---------------------------+      |
 -- afterBase  ----------------------------------+
 --
@@ -162,6 +165,7 @@ data Pad = GlobalPad | FilePad | GroupPad | NoPad
 -- If the as alias is missing afterAlias is equal to afterModuleName.
 data Stats = Stats
     { afterModuleName :: Int
+    , afterModulePad :: Int
     , afterAlias :: Int
     , afterBase :: Int
     }
@@ -243,7 +247,8 @@ prettyMy GroupStats{..} Options{..} imps =
         importBasePadSize = afterBase computeImportStats
 
         computeImportStats =
-            snd $ prettyOnlyBase (NoPad /= _padQualified) importStyle magic imp
+            snd $ prettyOnlyBase (statsPadQualified globalStats)
+                importStyle magic imp
 
         short xs = prettySpec xs _shortSpec base
         long xs = prettySpec xs _longSpec base
@@ -416,7 +421,7 @@ prettyMy GroupStats{..} Options{..} imps =
 
         willNextOverflow _ [] = False
         willNextOverflow r ((str, _, _) : _) =
-            if getLen (addStr str r) > columns
+            if getLen (addStr str r) > columns + 1
                 then True
                 else False
 
@@ -433,22 +438,24 @@ prettyOnlyBase
     -> (String, Stats)
 prettyOnlyBase padQualified (Import _ _ _ _ _) padModifierColum imp =
     let afterNameLength = length $ unwords moduleName
+        afterModulePad = length $ unwords modulePad
         afterAliasLenght = length $ unwords alias
         afterBaseLength = length $ unwords base
     in ( unwords base
        , Stats
            { afterModuleName = afterNameLength
            , afterAlias = afterAliasLenght
+           , afterModulePad = afterModulePad
            , afterBase = afterBaseLength
            }
        )
   where
     isImporQualified = H.importQualified imp
 
-    qualified' True = "qualified"
+    qualified' True = ["qualified"]
     qualified' False = if padQualified
-        then "         "
-        else ""
+        then ["         "]
+        else []
 
     moduleNameRec (H.ModuleName _ n) = n
 
@@ -458,12 +465,13 @@ prettyOnlyBase padQualified (Import _ _ _ _ _) padModifierColum imp =
       where
         len = length (unwords moduleName)
 
+    moduleName :: [String]
     moduleName =
-        [ "import"
-        , qualified' isImporQualified
-        , moduleNameRec $ H.importModule imp
-        ]
-    alias = moduleName <> padModifier
+        ["import"]
+        <> qualified' isImporQualified
+        <> [moduleNameRec $ H.importModule imp]
+    modulePad = moduleName <> padModifier
+    alias = modulePad
         <> ["as " <> moduleNameRec x | x <- maybeToList $ H.importAs imp]
     base = alias
         <> if hasHiding
@@ -507,10 +515,10 @@ defaultOptions = Options 80 Import
         [ Other' SpecAlias, Other' $ Lit ")"]
         [ Other' $ Lit ", ", NewLine' (NewLineAsFarAsPossible [PadToImportAlias, Lit "  "]), Other' SpecAlias]
         ( SubSpec
-            [Other' $ Lit " "]
-            [Other' $ Lit " "]
-            [Other' $ Lit " "]
-            [Other' $ Lit " "]
+            [Other' $ Lit "(", Other' SpecAlias]
+            [Other' $ Lit ")"]
+            [Other' $ Lit ", ", Other' SpecAlias]
+            [Other' $ Lit " (..)"]
         )
     }
 
@@ -543,10 +551,8 @@ step' _columns o@(Options c i) ls (module', _) = applyChanges
         , statsPadQualified = shouldPadQualified group'
         }
 
-    shouldPadQualified group' = case qualOpt of
+    shouldPadQualified group' = case _padQualified i of
         GlobalPad -> True
         FilePad -> any H.importQualified imps
         GroupPad -> any H.importQualified group'
         NoPad -> False
-
-    qualOpt = FilePad

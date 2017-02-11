@@ -25,13 +25,13 @@ import           Language.Haskell.Stylish.Tests.Util
 tests :: Test
 tests = testGroup "Language.Haskell.Stylish.Step.Imports.Tests"
     [ testCase "case 01" case01
---    , testCase "case 02" case02
---    , testCase "case 03" case03
---    , testCase "case 04" case04
---    , testCase "case 05" case05
---    , testCase "case 06" case06
---    , testCase "case 07" case07
---    , testCase "case 08" case08
+    , testCase "case 02" case02
+    , testCase "case 03" case03
+    , testCase "case 04" case04
+    , testCase "case 05" case05
+    , testCase "case 06" case06
+    , testCase "case 07" case07
+    , testCase "case 08" case08
 --    , testCase "case 09" case09
 --    , testCase "case 10" case10
 --    , testCase "case 11" case11
@@ -90,121 +90,178 @@ case01 = expected @=? testStep (step 80 $ defaultOptions) input
         ]
 
 
-----------------------------------------------------------------------------------
---case02 :: Assertion
---case02 = expected @=? testStep (step 80 $ fromImportAlign Group) input
---  where
---    expected = unlines
---        [ "module Herp where"
---        , ""
---        , "import           Control.Monad"
---        , "import           Data.List      as List (concat, foldl, foldr, head, init, last,"
---        , "                                         length, map, null, reverse, tail, (++))"
---        , "import           Data.Map       (Map, insert, lookup, (!))"
---        , "import qualified Data.Map       as M"
---        , "import           Only.Instances ()"
---        , ""
---        , "import Foo                 (Bar (..))"
---        , "import Herp.Derp.Internals hiding (foo)"
---        , ""
---        , "herp = putStrLn \"import Hello world\""
---        ]
---
---
-----------------------------------------------------------------------------------
---case03 :: Assertion
---case03 = expected @=? testStep (step 80 $ fromImportAlign None) input
---  where
---    expected = unlines
---        [ "module Herp where"
---        , ""
---        , "import Control.Monad"
---        , "import Data.List as List (concat, foldl, foldr, head, init, last, length, map,"
---        , "                          null, reverse, tail, (++))"
---        , "import Data.Map (Map, insert, lookup, (!))"
---        , "import qualified Data.Map as M"
---        , "import Only.Instances ()"
---        , ""
---        , "import Foo (Bar (..))"
---        , "import Herp.Derp.Internals hiding (foo)"
---        , ""
---        , "herp = putStrLn \"import Hello world\""
---        ]
---
---
-----------------------------------------------------------------------------------
---case04 :: Assertion
---case04 = expected @=? testStep (step 80 $ fromImportAlign Global) input'
---  where
---    input' =
---        "import Data.Aeson.Types (object, typeMismatch, FromJSON(..)," ++
---        "ToJSON(..), Value(..), parseEither, (.!=), (.:), (.:?), (.=))"
---
---    expected = unlines
---        [ "import           Data.Aeson.Types (FromJSON (..), ToJSON (..), Value (..),"
---        , "                                   object, parseEither, typeMismatch, (.!=),"
---        , "                                   (.:), (.:?), (.=))"
---        ]
---
---
-----------------------------------------------------------------------------------
---case05 :: Assertion
---case05 = input' @=? testStep (step 80 $ fromImportAlign Group) input'
---  where
---    input' = "import Distribution.PackageDescription.Configuration " ++
---        "(finalizePackageDescription)\n"
---
---
-----------------------------------------------------------------------------------
---case06 :: Assertion
---case06 = input' @=? testStep (step 80 $ fromImportAlign File) input'
---  where
---    input' = unlines
---        [ "import Bar.Qux"
---        , "import Foo.Bar"
---        ]
---
---
-----------------------------------------------------------------------------------
---case07 :: Assertion
---case07 = expected @=? testStep (step 80 $ fromImportAlign File) input'
---  where
---    input' = unlines
---        [ "import Bar.Qux"
---        , ""
---        , "import qualified Foo.Bar"
---        ]
---
---    expected = unlines
---        [ "import           Bar.Qux"
---        , ""
---        , "import qualified Foo.Bar"
---        ]
---
---
-----------------------------------------------------------------------------------
---case08 :: Assertion
---case08 = expected
---    @=? testStep (step 80 $ Options Global WithAlias Inline Inherit (LPConstant 4) True) input
---  where
---    expected = unlines
---        [ "module Herp where"
---        , ""
---        , "import           Control.Monad"
---        , "import           Data.List           as List (concat, foldl, foldr, head, init,"
---        , "                                     last, length, map, null, reverse, tail,"
---        , "                                     (++))"
---        , "import           Data.Map            (Map, insert, lookup, (!))"
---        , "import qualified Data.Map            as M"
---        , "import           Only.Instances      ()"
---        , ""
---        , "import           Foo                 (Bar (..))"
---        , "import           Herp.Derp.Internals hiding (foo)"
---        , ""
---        , "herp = putStrLn \"import Hello world\""
---        ]
---
---
+--------------------------------------------------------------------------------
+case02Options :: Options
+case02Options =
+    let (Options column style) = defaultOptions
+    in Options column style
+    { _padQualified = GroupPad
+    , _padModifier = GroupPad
+    }
+
+case02 :: Assertion
+case02 = expected @=? testStep (step 80 case02Options) input
+  where
+    expected = unlines
+        [ "module Herp where"
+        , ""
+        , "import           Control.Monad"
+        , "import           Data.List      as List (concat, foldl, foldr, head, init, last,"
+        , "                                         length, map, null, reverse, tail, (++))"
+        , "import           Data.Map       (Map, insert, lookup, (!))"
+        , "import qualified Data.Map       as M"
+        , "import           Only.Instances ()"
+        , ""
+        , "import Foo                 (Bar (..))"
+        , "import Herp.Derp.Internals hiding (foo)"
+        , ""
+        , "herp = putStrLn \"import Hello world\""
+        ]
+
+
+--------------------------------------------------------------------------------
+case03Options :: Options
+case03Options =
+    let (Options column style) = defaultOptions
+    in Options column style
+    { _padQualified = NoPad
+    , _padModifier = NoPad
+    }
+
+case03 :: Assertion
+case03 = expected @=? testStep (step 80 case03Options) input
+  where
+    expected = unlines
+        [ "module Herp where"
+        , ""
+        , "import Control.Monad"
+        , "import Data.List as List (concat, foldl, foldr, head, init, last, length, map,"
+        , "                          null, reverse, tail, (++))"
+        , "import Data.Map (Map, insert, lookup, (!))"
+        , "import qualified Data.Map as M"
+        , "import Only.Instances ()"
+        , ""
+        , "import Foo (Bar (..))"
+        , "import Herp.Derp.Internals hiding (foo)"
+        , ""
+        , "herp = putStrLn \"import Hello world\""
+        ]
+
+
+--------------------------------------------------------------------------------
+case04Options :: Options
+case04Options =
+    let (Options column style) = defaultOptions
+    in Options column style
+    { _padQualified = GlobalPad
+    , _padModifier = GlobalPad
+    }
+
+case04 :: Assertion
+case04 = expected @=? testStep (step 80 case04Options) input'
+  where
+    input' =
+        "import Data.Aeson.Types (object, typeMismatch, FromJSON(..)," ++
+        "ToJSON(..), Value(..), parseEither, (.!=), (.:), (.:?), (.=))"
+
+    expected = unlines
+        [ "import           Data.Aeson.Types (FromJSON (..), ToJSON (..), Value (..),"
+        , "                                   object, parseEither, typeMismatch, (.!=),"
+        , "                                   (.:), (.:?), (.=))"
+        ]
+
+
+--------------------------------------------------------------------------------
+case05Options :: Options
+case05Options =
+    let (Options column style) = defaultOptions
+    in Options column style
+    { _padQualified = GroupPad
+    , _padModifier = GroupPad
+    }
+
+case05 :: Assertion
+case05 = input' @=? testStep (step 80 case05Options) input'
+  where
+    input' = "import Distribution.PackageDescription.Configuration " ++
+        "(finalizePackageDescription)\n"
+
+
+--------------------------------------------------------------------------------
+case06Options :: Options
+case06Options =
+    let (Options column style) = defaultOptions
+    in Options column style
+    { _padQualified = FilePad
+    , _padModifier = FilePad
+    }
+
+case06 :: Assertion
+case06 = input' @=? testStep (step 80 case06Options) input'
+  where
+    input' = unlines
+        [ "import Bar.Qux"
+        , "import Foo.Bar"
+        ]
+
+
+--------------------------------------------------------------------------------
+case07Options :: Options
+case07Options =
+    let (Options column style) = defaultOptions
+    in Options column style
+    { _padQualified = FilePad
+    , _padModifier = FilePad
+    }
+
+case07 :: Assertion
+case07 = expected @=? testStep (step 80 case07Options) input'
+  where
+    input' = unlines
+        [ "import Bar.Qux"
+        , ""
+        , "import qualified Foo.Bar"
+        ]
+
+    expected = unlines
+        [ "import           Bar.Qux"
+        , ""
+        , "import qualified Foo.Bar"
+        ]
+
+
+--------------------------------------------------------------------------------
+case08Options :: Options
+case08Options =
+    let (Options column style) = defaultOptions
+    in Options column style
+    { _padQualified = FilePad
+    , _padModifier = FilePad
+    }
+
+case08 :: Assertion
+case08 = expected
+    -- @=? testStep (step 80 $ Options Global WithAlias Inline Inherit (LPConstant 4) True) input
+    @=? testStep (step 80 case08Options) input
+  where
+    expected = unlines
+        [ "module Herp where"
+        , ""
+        , "import           Control.Monad"
+        , "import           Data.List           as List (concat, foldl, foldr, head, init,"
+        , "                                     last, length, map, null, reverse, tail,"
+        , "                                     (++))"
+        , "import           Data.Map            (Map, insert, lookup, (!))"
+        , "import qualified Data.Map            as M"
+        , "import           Only.Instances      ()"
+        , ""
+        , "import           Foo                 (Bar (..))"
+        , "import           Herp.Derp.Internals hiding (foo)"
+        , ""
+        , "herp = putStrLn \"import Hello world\""
+        ]
+
+
 ----------------------------------------------------------------------------------
 --case09 :: Assertion
 --case09 = expected
