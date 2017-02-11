@@ -35,17 +35,17 @@ tests = testGroup "Language.Haskell.Stylish.Step.Imports.Tests"
     , testCase "case 09" case09
     , testCase "case 10" case10
     , testCase "case 11" case11
---    , testCase "case 12" case12
---    , testCase "case 13" case13
---    , testCase "case 14" case14
---    , testCase "case 15" case15
---    , testCase "case 16" case16
---    , testCase "case 17" case17
---    , testCase "case 18" case18
---    , testCase "case 19" case19
---    , testCase "case 19b" case19b
---    , testCase "case 19d" case19c
---    , testCase "case 19d" case19d
+    , testCase "case 12" case12
+    , testCase "case 13" case13
+    , testCase "case 14" case14
+    , testCase "case 15" case15
+    , testCase "case 16" case16
+    , testCase "case 17" case17
+    , testCase "case 18" case18
+    , testCase "case 19" case19
+    , testCase "case 19b" case19b
+    , testCase "case 19c" case19c
+    , testCase "case 19d" case19d
     ]
 
 
@@ -250,8 +250,7 @@ case08Options =
     }
 
 case08 :: Assertion
-case08 = expected
-    @=? testStep (step 80 case08Options) input
+case08 = expected @=? testStep (step 80 case08Options) input
   where
     expected = unlines
         [ "module Herp where"
@@ -292,7 +291,6 @@ case09Options =
 
 case09 :: Assertion
 case09 = expected @=? testStep (step 80 case09Options) input
-    -- @=? testStep (step 80 $ Options Global WithAlias Multiline Inherit (LPConstant 4) True) input
   where
     expected = unlines
         [ "module Herp where"
@@ -343,9 +341,7 @@ case10Options =
     }
 
 case10 :: Assertion
-case10 = expected
-    -- @=? testStep (step 40 $ Options Group WithAlias Multiline Inherit (LPConstant 4) True) input
-    @=? testStep (step 40 case10Options) input
+case10 = expected @=? testStep (step 40 case10Options) input
   where
     expected = unlines
         [ "module Herp where"
@@ -399,22 +395,10 @@ case11Options =
             [Other' $ Lit ", ", NewLine' $ NewLineAsFarAsPossible [Lit "    "], Other' SpecAlias]
             [Other' $ Lit " (..)"]
         )
-    , _longSpec = Spec
-        [ NewLine' $ NewLine [], Other' $ Lit "    ( ", Other' SpecAlias]
-        [ NewLine' $ NewLine [], Other' $ Lit "    ", Other' $ Lit ")"]
-        [ NewLine' $ NewLine [Lit "    , "], Other' SpecAlias]
-        ( SubSpec
-            [Other' $ Lit "(", Other' SpecAlias]
-            [Other' $ Lit ")"]
-            [Other' $ Lit ", ", Other' SpecAlias]
-            [Other' $ Lit " (..)"]
-        )
     }
 
 case11 :: Assertion
-case11 = expected
-    -- @=? testStep (step 80 $ Options Group NewLine Inline Inherit (LPConstant 4) True) input
-    @=? testStep (step 80 case11Options) input
+case11 = expected @=? testStep (step 80 case11Options) input
   where
     expected = unlines
         [ "module Herp where"
@@ -439,209 +423,394 @@ case11 = expected
         ]
 
 
+------------------------------------------------------------------------------
+case12Options :: Options
+case12Options =
+    let (Options _ style) = defaultOptions
+    in Options 80 style
+    { _padQualified = GroupPad
+    , _padModifier = GroupPad
+    , _formatIfSpecsEmpty = [ NewLine' $ NewLine [], Other' $ Lit "    ()"]
+    , _shortSpec = Spec
+        [ NewLine' $ NewLine [], Other' $ Lit "  (", Other' SpecAlias]
+        [ Other' $ Lit ")"]
+        [ Other' $ Lit ", ", NewLine' $ NewLineAsFarAsPossible [Lit "    "], Other' SpecAlias]
+        ( SubSpec
+            [Other' $ Lit "(", Other' SpecAlias]
+            [Other' $ Lit ")"]
+            [Other' $ Lit ", ", NewLine' $ NewLineAsFarAsPossible [Lit "    "], Other' SpecAlias]
+            [Other' $ Lit " (..)"]
+        )
+    }
+
+case12 :: Assertion
+case12 = expected @=? testStep (step 80 case12Options) input'
+  where
+    input' = unlines
+        [ "import Data.List (map)"
+        ]
+
+    expected = unlines
+        [ "import Data.List"
+        , "  (map)"
+        ]
+
+
 --------------------------------------------------------------------------------
---case12 :: Assertion
---case12 = expected
---    @=? testStep (step 80 $ Options Group NewLine Inline Inherit (LPConstant 2) True) input'
---  where
---    input' = unlines
---        [ "import Data.List (map)"
---        ]
---
---    expected = unlines
---        [ "import Data.List"
---        , "  (map)"
---        ]
---
---
-----------------------------------------------------------------------------------
---case13 :: Assertion
---case13 = expected
---    @=? testStep (step 80 $ Options None WithAlias InlineWithBreak Inherit (LPConstant 4) True) input'
---  where
---    input' = unlines
---        [ "import qualified Data.List as List (concat, foldl, foldr, head, init,"
---        , "    last, length, map, null, reverse, tail, (++))"
---        ]
---
---    expected = unlines
---        [ "import qualified Data.List as List"
---        , "    (concat, foldl, foldr, head, init, last, length, map, null, reverse, tail,"
---        , "    (++))"
---        ]
---
---
-----------------------------------------------------------------------------------
---case14 :: Assertion
---case14 = expected
---    @=? testStep
---      (step 80 $ Options None WithAlias InlineWithBreak Inherit (LPConstant 10) True) expected
---  where
---    expected = unlines
---        [ "import qualified Data.List as List (concat, map, null, reverse, tail, (++))"
---        ]
---
---
-----------------------------------------------------------------------------------
---case15 :: Assertion
---case15 = expected
---    @=? testStep (step 80 $ Options None AfterAlias Multiline Inherit (LPConstant 4) True) input'
---  where
---    expected = unlines
---        [ "import Data.Acid (AcidState)"
---        , "import qualified Data.Acid as Acid"
---        , "    ( closeAcidState"
---        , "    , createCheckpoint"
---        , "    , openLocalStateFrom"
---        , "    )"
---        , "import Data.Default.Class (Default (def))"
---        , ""
---        , "import qualified Herp.Derp.Internal.Types.Foobar as Internal (bar, foo)"
---        ]
---
---    input' = unlines
---        [ "import Data.Acid (AcidState)"
---        , "import qualified Data.Acid as Acid (closeAcidState, createCheckpoint, openLocalStateFrom)"
---        , "import Data.Default.Class (Default (def))"
---        , ""
---        , "import qualified Herp.Derp.Internal.Types.Foobar as Internal (foo, bar)"
---        ]
---
---
-----------------------------------------------------------------------------------
---case16 :: Assertion
---case16 = expected
---    @=? testStep (step 80 $ Options None AfterAlias Multiline Inherit (LPConstant 4) False) input'
---  where
---    expected = unlines
---        [ "import Data.Acid (AcidState)"
---        , "import Data.Default.Class (Default(def))"
---        , ""
---        , "import Data.Maybe (Maybe(Just, Nothing))"
---        , ""
---        , "import Data.Foo (Foo(Bar, Foo), Goo(Goo))"
---        ]
---
---    input' = unlines
---        [ "import Data.Acid (AcidState)"
---        , "import Data.Default.Class (Default(def))"
---        , ""
---        , "import Data.Maybe (Maybe   (Just, Nothing))"
---        , ""
---        , "import Data.Foo (Foo (Foo,Bar), Goo(Goo))"
---        ]
---
---
-----------------------------------------------------------------------------------
---case17 :: Assertion
---case17 = expected
---    @=? testStep (step 80 $ Options None AfterAlias Multiline Inherit (LPConstant 4) True) input'
---  where
---    expected = unlines
---        [ "import Control.Applicative (Applicative (pure, (<*>)))"
---        , ""
---        , "import Data.Identity (Identity (Identity, runIdentity))"
---        ]
---
---    input' = unlines
---        [ "import Control.Applicative (Applicative ((<*>),pure))"
---        , ""
---        , "import Data.Identity (Identity (runIdentity,Identity))"
---        ]
---
---
-----------------------------------------------------------------------------------
---case18 :: Assertion
---case18 = expected @=? testStep
---    (step 40 $ Options None AfterAlias InlineToMultiline Inherit (LPConstant 4) True) input'
---  where
---    expected = unlines
---           ----------------------------------------
---        [ "import Data.Foo as Foo (Bar, Baz, Foo)"
---        , ""
---        , "import Data.Identity"
---        , "    (Identity (Identity, runIdentity))"
---        , ""
---        , "import Data.Acid as Acid"
---        , "    ( closeAcidState"
---        , "    , createCheckpoint"
---        , "    , openLocalStateFrom"
---        , "    )"
---        ]
---
---    input' = unlines
---        [ "import Data.Foo as Foo (Bar, Baz, Foo)"
---        , ""
---        , "import Data.Identity (Identity (Identity, runIdentity))"
---        , ""
---        , "import Data.Acid as Acid (closeAcidState, createCheckpoint, openLocalStateFrom)"
---        ]
---
-----------------------------------------------------------------------------------
---case19 :: Assertion
---case19 = expected @=? testStep
---    (step 40 $ Options Global NewLine InlineWithBreak RightAfter (LPConstant 17) True) case19input
---  where
---    expected = unlines
---           ----------------------------------------
---        [ "import           Prelude ()"
---        , "import           Prelude.Compat hiding"
---        , "                 (foldMap)"
---        , ""
---        , "import           Data.List"
---        , "                 (foldl', intercalate,"
---        , "                 intersperse)"
---        ]
---
---case19b :: Assertion
---case19b = expected @=? testStep
---    (step 40 $ Options File NewLine InlineWithBreak RightAfter (LPConstant 17) True) case19input
---  where
---    expected = unlines
---           ----------------------------------------
---        [ "import Prelude ()"
---        , "import Prelude.Compat hiding"
---        , "                 (foldMap)"
---        , ""
---        , "import Data.List"
---        , "                 (foldl', intercalate,"
---        , "                 intersperse)"
---        ]
---
---case19c :: Assertion
---case19c = expected @=? testStep
---    (step 40 $ Options File NewLine InlineWithBreak RightAfter LPModuleName True) case19input
---  where
---    expected = unlines
---           ----------------------------------------
---        [ "import Prelude ()"
---        , "import Prelude.Compat hiding"
---        , "       (foldMap)"
---        , ""
---        , "import Data.List"
---        , "       (foldl', intercalate,"
---        , "       intersperse)"
---        ]
---
---case19d :: Assertion
---case19d = expected @=? testStep
---    (step 40 $ Options Global NewLine InlineWithBreak RightAfter LPModuleName True) case19input
---  where
---    expected = unlines
---           ----------------------------------------
---        [ "import           Prelude ()"
---        , "import           Prelude.Compat hiding"
---        , "                 (foldMap)"
---        , ""
---        , "import           Data.List"
---        , "                 (foldl', intercalate,"
---        , "                 intersperse)"
---        ]
---
---case19input :: String
---case19input = unlines
---        [ "import Prelude.Compat hiding (foldMap)"
---        , "import Prelude ()"
---        , ""
---        , "import Data.List (foldl', intercalate, intersperse)"
---        ]
+case13Options :: Options
+case13Options =
+    let (Options _ style) = defaultOptions
+    in Options 80 style
+    { _padQualified = NoPad
+    , _padModifier = NoPad
+    , _formatIfSpecsEmpty = [ NewLine' $ NewLine [], Other' $ Lit "    ()"]
+    , _shortSpec = Spec
+        [ NewLine' $ NewLine [], Other' $ Lit "    (", Other' SpecAlias]
+        [ Other' $ Lit ")"]
+        [ Other' $ Lit ", ", NewLine' $ NewLineAsFarAsPossible [Lit "    "], Other' SpecAlias]
+        ( SubSpec
+            [Other' $ Lit "(", Other' SpecAlias]
+            [Other' $ Lit ")"]
+            [Other' $ Lit ", ", NewLine' $ NewLineAsFarAsPossible [Lit "    "], Other' SpecAlias]
+            [Other' $ Lit " (..)"]
+        )
+    }
+
+case13 :: Assertion
+case13 = expected @=? testStep (step 80 case13Options) input'
+  where
+    input' = unlines
+        [ "import qualified Data.List as List (concat, foldl, foldr, head, init,"
+        , "    last, length, map, null, reverse, tail, (++))"
+        ]
+
+    expected = unlines
+        [ "import qualified Data.List as List"
+        , "    (concat, foldl, foldr, head, init, last, length, map, null, reverse, tail,"
+        , "    (++))"
+        ]
+
+
+--------------------------------------------------------------------------------
+case14Options :: Options
+case14Options =
+    let (Options _ style) = defaultOptions
+    in Options 80 style
+    { _padQualified = NoPad
+    , _padModifier = NoPad
+    }
+
+case14 :: Assertion
+case14 = expected @=? testStep (step 80 case14Options) expected
+  where
+    expected = unlines
+        [ "import qualified Data.List as List (concat, map, null, reverse, tail, (++))"
+        ]
+
+
+--------------------------------------------------------------------------------
+case15Options :: Options
+case15Options =
+    let (Options _ style) = defaultOptions
+    in Options 80 style
+    { _padQualified = NoPad
+    , _padModifier = NoPad
+    , _shortSpec = Spec
+        [ Other' $ Lit " (", Other' SpecAlias]
+        [ Other' $ Lit ")"]
+        [ Other' $ Lit ", ", Other' SpecAlias]
+        ( SubSpec
+            [Other' $ Lit " (", Other' SpecAlias]
+            [Other' $ Lit ")"]
+            [Other' $ Lit ", ", Other' SpecAlias]
+            [Other' $ Lit " (..)"]
+        )
+    , _longSpec = Spec
+        [ NewLine' $ NewLine [Lit "    "], Other' $ Lit "( ", Other' SpecAlias]
+        [ NewLine' $ NewLine [Lit "    "], Other' $ Lit ")"]
+        [ NewLine' $ NewLine [Lit "    "], Other' $ Lit ", ", Other' SpecAlias]
+        ( SubSpec
+            [ Other' $ Lit " (", Other' SpecAlias]
+            [ Other' $ Lit ")"]
+            [ NewLine' $ NewLine [Lit "    "], Other' $ Lit ", ", Other' SpecAlias]
+            [ Other' $ Lit " (..)"]
+        )
+    }
+
+case15 :: Assertion
+case15 = expected @=? testStep (step 80 case15Options) input'
+  where
+    expected = unlines
+        [ "import Data.Acid (AcidState)"
+        , "import qualified Data.Acid as Acid"
+        , "    ( closeAcidState"
+        , "    , createCheckpoint"
+        , "    , openLocalStateFrom"
+        , "    )"
+        , "import Data.Default.Class (Default (def))"
+        , ""
+        , "import qualified Herp.Derp.Internal.Types.Foobar as Internal (bar, foo)"
+        ]
+
+    input' = unlines
+        [ "import Data.Acid (AcidState)"
+        , "import qualified Data.Acid as Acid (closeAcidState, createCheckpoint, openLocalStateFrom)"
+        , "import Data.Default.Class (Default (def))"
+        , ""
+        , "import qualified Herp.Derp.Internal.Types.Foobar as Internal (foo, bar)"
+        ]
+
+
+--------------------------------------------------------------------------------
+case16Options :: Options
+case16Options =
+    let (Options _ style) = defaultOptions
+    in Options 80 style
+    { _padQualified = NoPad
+    , _padModifier = NoPad
+    }
+
+case16 :: Assertion
+case16 = expected @=? testStep (step 80 case16Options) input'
+  where
+    expected = unlines
+        [ "import Data.Acid (AcidState)"
+        , "import Data.Default.Class (Default(def))"
+        , ""
+        , "import Data.Maybe (Maybe(Just, Nothing))"
+        , ""
+        , "import Data.Foo (Foo(Bar, Foo), Goo(Goo))"
+        ]
+
+    input' = unlines
+        [ "import Data.Acid (AcidState)"
+        , "import Data.Default.Class (Default(def))"
+        , ""
+        , "import Data.Maybe (Maybe   (Just, Nothing))"
+        , ""
+        , "import Data.Foo (Foo (Foo,Bar), Goo(Goo))"
+        ]
+
+
+--------------------------------------------------------------------------------
+case17Options :: Options
+case17Options =
+    let (Options _ style) = defaultOptions
+    in Options 80 style
+    { _padQualified = NoPad
+    , _padModifier = NoPad
+    , _shortSpec = Spec
+        [ Other' $ Lit " (", Other' SpecAlias]
+        [ Other' $ Lit ")"]
+        [ Other' $ Lit ", ", Other' SpecAlias]
+        ( SubSpec
+            [Other' $ Lit " (", Other' SpecAlias]
+            [Other' $ Lit ")"]
+            [Other' $ Lit ", ", Other' SpecAlias]
+            [Other' $ Lit " (..)"]
+        )
+    }
+
+case17 :: Assertion
+case17 = expected @=? testStep (step 80 case17Options) input'
+  where
+    expected = unlines
+        [ "import Control.Applicative (Applicative (pure, (<*>)))"
+        , ""
+        , "import Data.Identity (Identity (Identity, runIdentity))"
+        ]
+
+    input' = unlines
+        [ "import Control.Applicative (Applicative ((<*>),pure))"
+        , ""
+        , "import Data.Identity (Identity (runIdentity,Identity))"
+        ]
+
+
+--------------------------------------------------------------------------------
+case18Options :: Options
+case18Options =
+    let (Options _ style) = defaultOptions
+    in Options 40 style
+    { _padQualified = NoPad
+    , _padModifier = NoPad
+    , _shortSpec = Spec
+        [ NewLine' $ NewLineAsFarAsPossible [Lit "   "], Other' $ Lit " (", Other' SpecAlias]
+        [ Other' $ Lit ")"]
+        [ Other' $ Lit ", ", Other' SpecAlias]
+        ( SubSpec
+            [Other' $ Lit " (", Other' SpecAlias]
+            [Other' $ Lit ")"]
+            [Other' $ Lit ", ", Other' SpecAlias]
+            [Other' $ Lit " (..)"]
+        )
+    , _longSpec = Spec
+        [ NewLine' $ NewLine [Lit "    "], Other' $ Lit "( ", Other' SpecAlias]
+        [ NewLine' $ NewLine [Lit "    "], Other' $ Lit ")"]
+        [ NewLine' $ NewLine [Lit "    "], Other' $ Lit ", ", Other' SpecAlias]
+        ( SubSpec
+            [ Other' $ Lit "(", Other' SpecAlias]
+            [ Other' $ Lit ")"]
+            [ Other' $ Lit ", ", NewLine' (NewLineAsFarAsPossible [PadToAlias, Lit "  "]), Other' SpecAlias]
+            [ Other' $ Lit " (..)"]
+        )
+    }
+
+case18 :: Assertion
+case18 = expected @=? testStep (step 40 case18Options) input'
+  where
+    expected = unlines
+           ----------------------------------------
+        [ "import Data.Foo as Foo (Bar, Baz, Foo)"
+        , ""
+        , "import Data.Identity"
+        , "    (Identity (Identity, runIdentity))"
+        , ""
+        , "import Data.Acid as Acid"
+        , "    ( closeAcidState"
+        , "    , createCheckpoint"
+        , "    , openLocalStateFrom"
+        , "    )"
+        ]
+
+    input' = unlines
+        [ "import Data.Foo as Foo (Bar, Baz, Foo)"
+        , ""
+        , "import Data.Identity (Identity (Identity, runIdentity))"
+        , ""
+        , "import Data.Acid as Acid (closeAcidState, createCheckpoint, openLocalStateFrom)"
+        ]
+
+--------------------------------------------------------------------------------
+case19Options :: Options
+case19Options =
+    let (Options _ style) = defaultOptions
+    in Options 39 style
+    { _padQualified = GlobalPad
+    , _padModifier = NoPad
+    , _formatIfSpecsEmpty = [Other' $ Lit " ()"]
+    , _shortSpec = Spec
+        [ NewLine' $ NewLine [Lit "                 "]
+        , Other' $ Lit "(", Other' SpecAlias
+        ]
+        [ Other' $ Lit ")"]
+        [ Other' $ Lit ", ", NewLine' $ NewLineAsFarAsPossible [Lit "                 "]
+        , Other' SpecAlias
+        ]
+        ( SubSpec
+            [Other' $ Lit " (", Other' SpecAlias]
+            [Other' $ Lit ")"]
+            [Other' $ Lit ", ", Other' SpecAlias]
+            [Other' $ Lit " (..)"]
+        )
+    }
+
+case19 :: Assertion
+case19 = expected @=? testStep (step 39 case19Options) case19input
+  where
+    expected = unlines
+           ----------------------------------------
+        [ "import           Prelude ()"
+        , "import           Prelude.Compat hiding"
+        , "                 (foldMap)"
+        , ""
+        , "import           Data.List"
+        , "                 (foldl', intercalate,"
+        , "                 intersperse)"
+        ]
+
+case19BOptions :: Options
+case19BOptions =
+    let (Options _ style) = case19Options
+    in Options 39 style
+    { _padQualified = FilePad
+    , _padModifier = NoPad
+    }
+
+case19b :: Assertion
+case19b = expected @=? testStep (step 39 case19BOptions) case19input
+  where
+    expected = unlines
+           ----------------------------------------
+        [ "import Prelude ()"
+        , "import Prelude.Compat hiding"
+        , "                 (foldMap)"
+        , ""
+        , "import Data.List"
+        , "                 (foldl', intercalate,"
+        , "                 intersperse)"
+        ]
+
+case19COptions :: Options
+case19COptions =
+    let (Options _ style) = defaultOptions
+    in Options 39 style
+    { _padQualified = NoPad
+    , _padModifier = NoPad
+    , _formatIfSpecsEmpty = [Other' $ Lit " ()"]
+    , _shortSpec = Spec
+        [ NewLine' $ NewLine [Lit "       "]
+        , Other' $ Lit "(", Other' SpecAlias
+        ]
+        [ Other' $ Lit ")"]
+        [ Other' $ Lit ", ", NewLine' $ NewLineAsFarAsPossible [Lit "       "]
+        , Other' SpecAlias
+        ]
+        ( SubSpec
+            [Other' $ Lit " (", Other' SpecAlias]
+            [Other' $ Lit ")"]
+            [Other' $ Lit ", ", Other' SpecAlias]
+            [Other' $ Lit " (..)"]
+        )
+    , _longSpec = Spec
+        [ NewLine' $ NewLine [Lit "       "]
+        , Other' $ Lit "(", Other' SpecAlias
+        ]
+        [ Other' $ Lit ")"]
+        [ Other' $ Lit ", ", NewLine' $ NewLineAsFarAsPossible [Lit "       "]
+        , Other' SpecAlias
+        ]
+        ( SubSpec
+            [Other' $ Lit " (", Other' SpecAlias]
+            [Other' $ Lit ")"]
+            [Other' $ Lit ", ", Other' SpecAlias]
+            [Other' $ Lit " (..)"]
+        )
+    }
+
+case19c :: Assertion
+case19c = expected @=? testStep (step 39 case19COptions) case19input
+  where
+    expected = unlines
+           ----------------------------------------
+        [ "import Prelude ()"
+        , "import Prelude.Compat hiding"
+        , "       (foldMap)"
+        , ""
+        , "import Data.List"
+        , "       (foldl', intercalate,"
+        , "       intersperse)"
+        ]
+
+case19d :: Assertion
+case19d = expected @=? testStep
+    (step 40 $ case19Options) case19input
+  where
+    expected = unlines
+           ----------------------------------------
+        [ "import           Prelude ()"
+        , "import           Prelude.Compat hiding"
+        , "                 (foldMap)"
+        , ""
+        , "import           Data.List"
+        , "                 (foldl', intercalate,"
+        , "                 intersperse)"
+        ]
+
+case19input :: String
+case19input = unlines
+        [ "import Prelude.Compat hiding (foldMap)"
+        , "import Prelude ()"
+        , ""
+        , "import Data.List (foldl', intercalate, intersperse)"
+        ]

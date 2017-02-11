@@ -511,10 +511,10 @@ defaultOptions = Options 80 Import
         [ Other' $ Lit ")"]
         [ Other' $ Lit ", ", NewLine' (NewLineAsFarAsPossible [PadToAlias, Lit "  "]), Other' SpecAlias]
         ( SubSpec
-            [Other' $ Lit "(", Other' SpecAlias]
-            [Other' $ Lit ")"]
-            [Other' $ Lit ", ", Other' SpecAlias]
-            [Other' $ Lit " (..)"]
+            [ Other' $ Lit "(", Other' SpecAlias]
+            [ Other' $ Lit ")"]
+            [ Other' $ Lit ", ", NewLine' (NewLineAsFarAsPossible [PadToAlias, Lit "  "]), Other' SpecAlias]
+            [ Other' $ Lit " (..)"]
         )
     }
 
