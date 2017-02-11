@@ -33,8 +33,8 @@ tests = testGroup "Language.Haskell.Stylish.Step.Imports.Tests"
     , testCase "case 07" case07
     , testCase "case 08" case08
     , testCase "case 09" case09
---    , testCase "case 10" case10
---    , testCase "case 11" case11
+    , testCase "case 10" case10
+    , testCase "case 11" case11
 --    , testCase "case 12" case12
 --    , testCase "case 13" case13
 --    , testCase "case 14" case14
@@ -279,7 +279,7 @@ case09Options =
     { _padQualified = GlobalPad
     , _padModifier = GlobalPad
     , _longSpec = Spec
-        [ NewLine' $ NewLine [], Other' $  Lit "    ( ", Other' SpecAlias]
+        [ NewLine' $ NewLine [], Other' $ Lit "    ( ", Other' SpecAlias]
         [ NewLine' $ NewLine [], Other' $ Lit "    ", Other' $ Lit ")"]
         [ NewLine' $ NewLine [Lit "    , "], Other' SpecAlias]
         ( SubSpec
@@ -323,74 +323,123 @@ case09 = expected @=? testStep (step 80 case09Options) input
         ]
 
 
-----------------------------------------------------------------------------------
---case10 :: Assertion
---case10 = expected
---    @=? testStep (step 40 $ Options Group WithAlias Multiline Inherit (LPConstant 4) True) input
---  where
---    expected = unlines
---        [ "module Herp where"
---        , ""
---        , "import           Control.Monad"
---        , "import           Data.List      as List"
---        , "    ( concat"
---        , "    , foldl"
---        , "    , foldr"
---        , "    , head"
---        , "    , init"
---        , "    , last"
---        , "    , length"
---        , "    , map"
---        , "    , null"
---        , "    , reverse"
---        , "    , tail"
---        , "    , (++)"
---        , "    )"
---        , "import           Data.Map"
---        , "    ( Map"
---        , "    , insert"
---        , "    , lookup"
---        , "    , (!)"
---        , "    )"
---        , "import qualified Data.Map       as M"
---        , "import           Only.Instances ()"
---        , ""
---        , "import Foo                 (Bar (..))"
---        , "import Herp.Derp.Internals hiding (foo)"
---        , ""
---        , "herp = putStrLn \"import Hello world\""
---        ]
---
---
-----------------------------------------------------------------------------------
---case11 :: Assertion
---case11 = expected
---    @=? testStep (step 80 $ Options Group NewLine Inline Inherit (LPConstant 4) True) input
---  where
---    expected = unlines
---        [ "module Herp where"
---        , ""
---        , "import           Control.Monad"
---        , "import           Data.List      as List"
---        , "    (concat, foldl, foldr, head, init, last, length, map, null, reverse, tail,"
---        , "    (++))"
---        , "import           Data.Map"
---        , "    (Map, insert, lookup, (!))"
---        , "import qualified Data.Map       as M"
---        , "import           Only.Instances"
---        , "    ()"
---        , ""
---        , "import Foo"
---        , "    (Bar (..))"
---        , "import Herp.Derp.Internals hiding"
---        , "    (foo)"
---
---        , ""
---        , "herp = putStrLn \"import Hello world\""
---        ]
---
---
-----------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+case10Options :: Options
+case10Options =
+    let (Options _ style) = defaultOptions
+    in Options 40 style
+    { _padQualified = GroupPad
+    , _padModifier = GroupPad
+    , _longSpec = Spec
+        [ NewLine' $ NewLine [], Other' $ Lit "    ( ", Other' SpecAlias]
+        [ NewLine' $ NewLine [], Other' $ Lit "    ", Other' $ Lit ")"]
+        [ NewLine' $ NewLine [Lit "    , "], Other' SpecAlias]
+        ( SubSpec
+            [Other' $ Lit "(", Other' SpecAlias]
+            [Other' $ Lit ")"]
+            [Other' $ Lit ", ", Other' SpecAlias]
+            [Other' $ Lit " (..)"]
+        )
+    }
+
+case10 :: Assertion
+case10 = expected
+    -- @=? testStep (step 40 $ Options Group WithAlias Multiline Inherit (LPConstant 4) True) input
+    @=? testStep (step 40 case10Options) input
+  where
+    expected = unlines
+        [ "module Herp where"
+        , ""
+        , "import           Control.Monad"
+        , "import           Data.List      as List"
+        , "    ( concat"
+        , "    , foldl"
+        , "    , foldr"
+        , "    , head"
+        , "    , init"
+        , "    , last"
+        , "    , length"
+        , "    , map"
+        , "    , null"
+        , "    , reverse"
+        , "    , tail"
+        , "    , (++)"
+        , "    )"
+        , "import           Data.Map"
+        , "    ( Map"
+        , "    , insert"
+        , "    , lookup"
+        , "    , (!)"
+        , "    )"
+        , "import qualified Data.Map       as M"
+        , "import           Only.Instances ()"
+        , ""
+        , "import Foo                 (Bar (..))"
+        , "import Herp.Derp.Internals hiding (foo)"
+        , ""
+        , "herp = putStrLn \"import Hello world\""
+        ]
+
+
+--------------------------------------------------------------------------------
+case11Options :: Options
+case11Options =
+    let (Options _ style) = defaultOptions
+    in Options 80 style
+    { _padQualified = GroupPad
+    , _padModifier = GroupPad
+    , _formatIfSpecsEmpty = [ NewLine' $ NewLine [], Other' $ Lit "    ()"]
+    , _shortSpec = Spec
+        [ NewLine' $ NewLine [], Other' $ Lit "    (", Other' SpecAlias]
+        [ Other' $ Lit ")"]
+        [ Other' $ Lit ", ", NewLine' $ NewLineAsFarAsPossible [Lit "    "], Other' SpecAlias]
+        ( SubSpec
+            [Other' $ Lit "(", Other' SpecAlias]
+            [Other' $ Lit ")"]
+            [Other' $ Lit ", ", NewLine' $ NewLineAsFarAsPossible [Lit "    "], Other' SpecAlias]
+            [Other' $ Lit " (..)"]
+        )
+    , _longSpec = Spec
+        [ NewLine' $ NewLine [], Other' $ Lit "    ( ", Other' SpecAlias]
+        [ NewLine' $ NewLine [], Other' $ Lit "    ", Other' $ Lit ")"]
+        [ NewLine' $ NewLine [Lit "    , "], Other' SpecAlias]
+        ( SubSpec
+            [Other' $ Lit "(", Other' SpecAlias]
+            [Other' $ Lit ")"]
+            [Other' $ Lit ", ", Other' SpecAlias]
+            [Other' $ Lit " (..)"]
+        )
+    }
+
+case11 :: Assertion
+case11 = expected
+    -- @=? testStep (step 80 $ Options Group NewLine Inline Inherit (LPConstant 4) True) input
+    @=? testStep (step 80 case11Options) input
+  where
+    expected = unlines
+        [ "module Herp where"
+        , ""
+        , "import           Control.Monad"
+        , "import           Data.List      as List"
+        , "    (concat, foldl, foldr, head, init, last, length, map, null, reverse, tail,"
+        , "    (++))"
+        , "import           Data.Map"
+        , "    (Map, insert, lookup, (!))"
+        , "import qualified Data.Map       as M"
+        , "import           Only.Instances"
+        , "    ()"
+        , ""
+        , "import Foo"
+        , "    (Bar (..))"
+        , "import Herp.Derp.Internals hiding"
+        , "    (foo)"
+
+        , ""
+        , "herp = putStrLn \"import Hello world\""
+        ]
+
+
+--------------------------------------------------------------------------------
 --case12 :: Assertion
 --case12 = expected
 --    @=? testStep (step 80 $ Options Group NewLine Inline Inherit (LPConstant 2) True) input'
