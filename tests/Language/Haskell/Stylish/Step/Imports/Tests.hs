@@ -92,9 +92,7 @@ case01 = expected @=? testStep (step 80 $ defaultOptions) input
 
 --------------------------------------------------------------------------------
 case02Options :: Options
-case02Options =
-    let (Options column style) = defaultOptions
-    in Options column style
+case02Options = defaultOptions
     { _padQualified = GroupPad
     , _padModifier = GroupPad
     }
@@ -121,9 +119,7 @@ case02 = expected @=? testStep (step 80 case02Options) input
 
 --------------------------------------------------------------------------------
 case03Options :: Options
-case03Options =
-    let (Options column style) = defaultOptions
-    in Options column style
+case03Options = defaultOptions
     { _padQualified = NoPad
     , _padModifier = NoPad
     }
@@ -150,9 +146,7 @@ case03 = expected @=? testStep (step 80 case03Options) input
 
 --------------------------------------------------------------------------------
 case04Options :: Options
-case04Options =
-    let (Options column style) = defaultOptions
-    in Options column style
+case04Options = defaultOptions
     { _padQualified = GlobalPad
     , _padModifier = GlobalPad
     }
@@ -173,9 +167,7 @@ case04 = expected @=? testStep (step 80 case04Options) input'
 
 --------------------------------------------------------------------------------
 case05Options :: Options
-case05Options =
-    let (Options column style) = defaultOptions
-    in Options column style
+case05Options = defaultOptions
     { _padQualified = GroupPad
     , _padModifier = GroupPad
     }
@@ -189,9 +181,7 @@ case05 = input' @=? testStep (step 80 case05Options) input'
 
 --------------------------------------------------------------------------------
 case06Options :: Options
-case06Options =
-    let (Options column style) = defaultOptions
-    in Options column style
+case06Options = defaultOptions
     { _padQualified = FilePad
     , _padModifier = FilePad
     }
@@ -207,9 +197,7 @@ case06 = input' @=? testStep (step 80 case06Options) input'
 
 --------------------------------------------------------------------------------
 case07Options :: Options
-case07Options =
-    let (Options column style) = defaultOptions
-    in Options column style
+case07Options = defaultOptions
     { _padQualified = FilePad
     , _padModifier = FilePad
     }
@@ -232,9 +220,7 @@ case07 = expected @=? testStep (step 80 case07Options) input'
 
 --------------------------------------------------------------------------------
 case08Options :: Options
-case08Options =
-    let (Options column style) = defaultOptions
-    in Options column style
+case08Options = defaultOptions
     { _padQualified = FilePad
     , _padModifier = FilePad
     , _longSpec = Spec
@@ -276,9 +262,7 @@ case08 = expected @=? testStep (step 80 case08Options) input
 
 --------------------------------------------------------------------------------
 case09Options :: Options
-case09Options =
-    let (Options column style) = defaultOptions
-    in Options column style
+case09Options = defaultOptions
     { _padQualified = GlobalPad
     , _padModifier = GlobalPad
     , _longSpec = Spec
@@ -327,9 +311,7 @@ case09 = expected @=? testStep (step 80 case09Options) input
 
 --------------------------------------------------------------------------------
 case10Options :: Options
-case10Options =
-    let (Options _ style) = defaultOptions
-    in Options 40 style
+case10Options = defaultOptions
     { _padQualified = GroupPad
     , _padModifier = GroupPad
     , _longSpec = Spec
@@ -383,9 +365,7 @@ case10 = expected @=? testStep (step 40 case10Options) input
 
 --------------------------------------------------------------------------------
 case11Options :: Options
-case11Options =
-    let (Options _ style) = defaultOptions
-    in Options 80 style
+case11Options = defaultOptions
     { _padQualified = GroupPad
     , _padModifier = GroupPad
     , _formatIfSpecsEmpty = [ NewLine' $ NewLine [], Other' $ Lit "    ()"]
@@ -435,9 +415,7 @@ case11 = expected @=? testStep (step 80 case11Options) input
 
 ------------------------------------------------------------------------------
 case12Options :: Options
-case12Options =
-    let (Options _ style) = defaultOptions
-    in Options 80 style
+case12Options = defaultOptions
     { _padQualified = GroupPad
     , _padModifier = GroupPad
     , _formatIfSpecsEmpty = [ NewLine' $ NewLine [], Other' $ Lit "    ()"]
@@ -474,9 +452,7 @@ case12 = expected @=? testStep (step 80 case12Options) input'
 
 --------------------------------------------------------------------------------
 case13Options :: Options
-case13Options =
-    let (Options _ style) = defaultOptions
-    in Options 80 style
+case13Options = defaultOptions
     { _padQualified = NoPad
     , _padModifier = NoPad
     , _formatIfSpecsEmpty = [ NewLine' $ NewLine [], Other' $ Lit "    ()"]
@@ -515,9 +491,7 @@ case13 = expected @=? testStep (step 80 case13Options) input'
 
 --------------------------------------------------------------------------------
 case14Options :: Options
-case14Options =
-    let (Options _ style) = defaultOptions
-    in Options 80 style
+case14Options = defaultOptions
     { _padQualified = NoPad
     , _padModifier = NoPad
     }
@@ -532,9 +506,7 @@ case14 = expected @=? testStep (step 80 case14Options) expected
 
 --------------------------------------------------------------------------------
 case15Options :: Options
-case15Options =
-    let (Options _ style) = defaultOptions
-    in Options 80 style
+case15Options = defaultOptions
     { _padQualified = NoPad
     , _padModifier = NoPad
     , _shortSpec = Spec
@@ -588,9 +560,7 @@ case15 = expected @=? testStep (step 80 case15Options) input'
 
 --------------------------------------------------------------------------------
 case16Options :: Options
-case16Options =
-    let (Options _ style) = defaultOptions
-    in Options 80 style
+case16Options = defaultOptions
     { _padQualified = NoPad
     , _padModifier = NoPad
     , _shortSpec = Spec
@@ -629,9 +599,7 @@ case16 = expected @=? testStep (step 80 case16Options) input'
 
 --------------------------------------------------------------------------------
 case17Options :: Options
-case17Options =
-    let (Options _ style) = defaultOptions
-    in Options 80 style
+case17Options = defaultOptions
     { _padQualified = NoPad
     , _padModifier = NoPad
     , _shortSpec = Spec
@@ -664,9 +632,7 @@ case17 = expected @=? testStep (step 80 case17Options) input'
 
 --------------------------------------------------------------------------------
 case18Options :: Options
-case18Options =
-    let (Options _ style) = defaultOptions
-    in Options 40 style
+case18Options = defaultOptions
     { _padQualified = NoPad
     , _padModifier = NoPad
     , _shortSpec = Spec
@@ -724,9 +690,7 @@ case18 = expected @=? testStep (step 40 case18Options) input'
 
 --------------------------------------------------------------------------------
 case19Options :: Options
-case19Options =
-    let (Options _ style) = defaultOptions
-    in Options 39 style
+case19Options = defaultOptions
     { _padQualified = GlobalPad
     , _padModifier = NoPad
     , _formatIfSpecsEmpty = [Other' $ Lit " ()"]
@@ -763,9 +727,7 @@ case19 = expected @=? testStep (step 39 case19Options) case19input
         ]
 
 case19BOptions :: Options
-case19BOptions =
-    let (Options _ style) = case19Options
-    in Options 39 style
+case19BOptions = case19Options
     { _padQualified = FilePad
     , _padModifier = NoPad
     }
@@ -785,9 +747,7 @@ case19b = expected @=? testStep (step 39 case19BOptions) case19input
         ]
 
 case19COptions :: Options
-case19COptions =
-    let (Options _ style) = defaultOptions
-    in Options 39 style
+case19COptions = defaultOptions
     { _padQualified = NoPad
     , _padModifier = NoPad
     , _formatIfSpecsEmpty = [Other' $ Lit " ()"]

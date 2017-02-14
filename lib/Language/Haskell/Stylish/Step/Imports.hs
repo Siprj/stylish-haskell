@@ -4,7 +4,6 @@
 --------------------------------------------------------------------------------
 module Language.Haskell.Stylish.Step.Imports
     ( Options (..)
-    , Import (..)
     , Pad (..)
     , Other (..)
     , Piece (..)
@@ -98,7 +97,7 @@ sortImportSubSpecs (H.IThingWith l n x) =
     H.IThingWith l n $ sortBy compareImportSubSpecs x
 sortImportSubSpecs x = x
 
-data Import = Import
+data Options = Options
     { _padQualified :: Pad
     , _padModifier :: Pad
     , _formatIfSpecsEmpty :: [Piece]
@@ -185,12 +184,6 @@ data GroupStats = GroupStats
     }
   deriving (Show)
 
-data Options = Options
-    { columns :: Int
-    , importStyle :: Import
-    }
-  deriving (Show)
-
 addString :: String -> PieceResult -> PieceResult
 addString str2 (str, br, str') = (str <> str2, br, str')
 
@@ -211,12 +204,12 @@ onHead
     -> NEL.NonEmpty a
 onHead f (a NEL.:| as)  = (f a NEL.:| as)
 
-prettyMy :: GroupStats -> Options -> [H.ImportDecl LineBlock] -> Lines
-prettyMy GroupStats{..} Options{..} imps =
-    mconcat $ fmap (prettyPrintWhole importStyle) imps
+prettyMy :: GroupStats -> Int -> Options -> [H.ImportDecl LineBlock] -> Lines
+prettyMy GroupStats{..} columns options@Options{..} imps =
+    mconcat $ fmap (prettyPrintWhole options) imps
   where
-    prettyPrintWhole :: Import -> H.ImportDecl LineBlock -> [String]
-    prettyPrintWhole Import{..} imp@H.ImportDecl{..} =
+    prettyPrintWhole :: Options -> H.ImportDecl LineBlock -> [String]
+    prettyPrintWhole Options{..} imp@H.ImportDecl{..} =
         removeSpaces. lines . expandBreaks $ case importSpecs of
             Nothing -> strToPieceResult prettyPrintBase
             Just (H.ImportSpecList _ _ xs) ->
@@ -247,7 +240,7 @@ prettyMy GroupStats{..} Options{..} imps =
 
         computeImportStats =
             snd $ prettyOnlyBase (statsPadQualified globalStats)
-                importStyle magic imp
+                options magic imp
 
         short xs = prettySpec xs _shortSpec base
         long xs = prettySpec xs _longSpec base
@@ -257,7 +250,7 @@ prettyMy GroupStats{..} Options{..} imps =
         prettyPrintBase :: String
         prettyPrintBase =
             let (b, _) = prettyOnlyBase (statsPadQualified globalStats)
-                    importStyle magic imp
+                    options magic imp
             in b
 
         base :: NEL.NonEmpty PieceResult
@@ -426,12 +419,12 @@ prettyMy GroupStats{..} Options{..} imps =
 
 prettyOnlyBase
     :: Bool
-    -> Import
+    -> Options
     -> Int
     -- ^ Pad inmpor modifier to some colum
     -> H.ImportDecl LineBlock
     -> (String, Stats)
-prettyOnlyBase padQualified (Import _ _ _ _ _) padModifierColum imp =
+prettyOnlyBase padQualified (Options _ _ _ _ _) padModifierColum imp =
     let afterNameLength = length $ unwords moduleName
         afterModulePad = (length $ unwords modulePad) - 1
         afterAliasLenght = length $ unwords alias
@@ -482,8 +475,8 @@ prettyOnlyBase padQualified (Import _ _ _ _ _) padModifierColum imp =
 prettyImportGroup :: Int -> GroupStats -> Options -> Int
                   -> [H.ImportDecl LineBlock]
                   -> Lines
-prettyImportGroup _columns globalStats options _longest imps =
-    prettyMy globalStats options $ sortBy compareImports imps
+prettyImportGroup columns globalStats options _longest imps =
+    prettyMy globalStats columns options $ sortBy compareImports imps
 
 
 --------------------------------------------------------------------------------
@@ -491,7 +484,7 @@ step :: Int -> Options -> Step
 step columns = makeStep "Imports" . step' columns
 
 defaultOptions :: Options
-defaultOptions = Options 80 Import
+defaultOptions = Options
     { _padQualified = GlobalPad
     , _padModifier = GlobalPad
     , _formatIfSpecsEmpty = [Other' $ Lit " ()"]
@@ -527,9 +520,10 @@ defaultOptions = Options 80 Import
 
 --------------------------------------------------------------------------------
 step' :: Int -> Options -> Lines -> Module -> Lines
-step' _columns o@(Options c i) ls (module', _) = applyChanges
+step' columns options@Options{..} ls (module', _) = applyChanges
     [ change block . const $
-        prettyImportGroup c (groupStats importGroup) o longest importGroup
+        prettyImportGroup columns (groupStats importGroup)
+            options longest importGroup
     | (block, importGroup) <- groups
     ]
     ls
@@ -541,18 +535,19 @@ step' _columns o@(Options c i) ls (module', _) = applyChanges
     groupStats :: [H.ImportDecl LineBlock] -> GroupStats
     groupStats group' = GroupStats
         { gropuStats =
-            fmap (snd . prettyOnlyBase (shouldPadQualified group') i 0) group'
+            fmap (snd . prettyOnlyBase (shouldPadQualified group') options 0)
+                group'
         , globalStats = globalStats' group'
         }
 
     globalStats' :: [H.ImportDecl LineBlock] -> GlobalStats
     globalStats' group' = GlobalStats
         { stats =
-            map (snd . prettyOnlyBase (shouldPadQualified group') i 0) imps
+            map (snd . prettyOnlyBase (shouldPadQualified group') options 0) imps
         , statsPadQualified = shouldPadQualified group'
         }
 
-    shouldPadQualified group' = case _padQualified i of
+    shouldPadQualified group' = case _padQualified of
         GlobalPad -> True
         FilePad -> any H.importQualified imps
         GroupPad -> any H.importQualified group'
