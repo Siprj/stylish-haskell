@@ -76,7 +76,6 @@ compareImportSpecs = comparing key
 
 --------------------------------------------------------------------------------
 -- | Sort the input spec list inside an 'H.ImportDecl'
--- TODO: sort subspecs
 sortImportSpecs :: H.ImportDecl l -> H.ImportDecl l
 sortImportSpecs imp = imp {H.importSpecs = sort' <$> H.importSpecs imp}
   where
@@ -497,24 +496,30 @@ defaultOptions = Options 80 Import
     , _padModifier = GlobalPad
     , _formatIfSpecsEmpty = [Other' $ Lit " ()"]
     , _shortSpec = Spec
-        [ Other' $ Lit " (", Other' SpecAlias]
-        [ Other' $ Lit ")"]
-        [ Other' $ Lit ", ", Other' SpecAlias]
+        [Other' $ Lit " (", Other' SpecAlias]
+        [Other' $ Lit ")"]
+        [Other' $ Lit ", ", Other' SpecAlias]
         ( SubSpec
-            [Other' $ Lit "(", Other' SpecAlias]
+            [Other' $ Lit " (", Other' SpecAlias]
             [Other' $ Lit ")"]
             [Other' $ Lit ", ", Other' SpecAlias]
             [Other' $ Lit " (..)"]
         )
     , _longSpec = Spec
-        [ Other' $ Lit " (", Other' SpecAlias]
-        [ Other' $ Lit ")"]
-        [ Other' $ Lit ", ", NewLine' (NewLineAsFarAsPossible [PadToAlias, Lit "  "]), Other' SpecAlias]
+        [Other' $ Lit " (", Other' SpecAlias]
+        [Other' $ Lit ")"]
+        [ Other' $ Lit ", "
+        , NewLine' (NewLineAsFarAsPossible [PadToAlias, Lit "  "])
+        , Other' SpecAlias
+        ]
         ( SubSpec
-            [ Other' $ Lit "(", Other' SpecAlias]
-            [ Other' $ Lit ")"]
-            [ Other' $ Lit ", ", NewLine' (NewLineAsFarAsPossible [PadToAlias, Lit "  "]), Other' SpecAlias]
-            [ Other' $ Lit " (..)"]
+            [Other' $ Lit " (", Other' SpecAlias]
+            [Other' $ Lit ")"]
+            [Other' $ Lit ", "
+            , NewLine' (NewLineAsFarAsPossible [PadToAlias, Lit "  "])
+            , Other' SpecAlias
+            ]
+            [Other' $ Lit " (..)"]
         )
     }
 

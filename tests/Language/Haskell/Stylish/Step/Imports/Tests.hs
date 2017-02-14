@@ -238,9 +238,13 @@ case08Options =
     { _padQualified = FilePad
     , _padModifier = FilePad
     , _longSpec = Spec
-        [ Other' $ Lit " (", Other' SpecAlias]
-        [ Other' SpecAlias, Other' $ Lit ")"]
-        [ Other' $ Lit ", ", NewLine' (NewLineAsFarAsPossible [PadToModulePad , Lit "  "]), Other' SpecAlias]
+        [Other' $ Lit " (", Other' SpecAlias]
+        [Other' SpecAlias, Other' $ Lit ")"]
+        [ Other' $ Lit ", "
+        , NewLine' (NewLineAsFarAsPossible [PadToModulePad
+        , Lit "  "])
+        , Other' SpecAlias
+        ]
         ( SubSpec
             [Other' $ Lit "(", Other' SpecAlias]
             [Other' $ Lit ")"]
@@ -278,11 +282,11 @@ case09Options =
     { _padQualified = GlobalPad
     , _padModifier = GlobalPad
     , _longSpec = Spec
-        [ NewLine' $ NewLine [], Other' $ Lit "    ( ", Other' SpecAlias]
-        [ NewLine' $ NewLine [], Other' $ Lit "    ", Other' $ Lit ")"]
-        [ NewLine' $ NewLine [Lit "    , "], Other' SpecAlias]
+        [NewLine' $ NewLine [], Other' $ Lit "    ( ", Other' SpecAlias]
+        [NewLine' $ NewLine [], Other' $ Lit "    ", Other' $ Lit ")"]
+        [NewLine' $ NewLine [Lit "    , "], Other' SpecAlias]
         ( SubSpec
-            [Other' $ Lit "(", Other' SpecAlias]
+            [Other' $ Lit " (", Other' SpecAlias]
             [Other' $ Lit ")"]
             [Other' $ Lit ", ", Other' SpecAlias]
             [Other' $ Lit " (..)"]
@@ -329,11 +333,11 @@ case10Options =
     { _padQualified = GroupPad
     , _padModifier = GroupPad
     , _longSpec = Spec
-        [ NewLine' $ NewLine [], Other' $ Lit "    ( ", Other' SpecAlias]
-        [ NewLine' $ NewLine [], Other' $ Lit "    ", Other' $ Lit ")"]
-        [ NewLine' $ NewLine [Lit "    , "], Other' SpecAlias]
+        [NewLine' $ NewLine [], Other' $ Lit "    ( ", Other' SpecAlias]
+        [NewLine' $ NewLine [], Other' $ Lit "    ", Other' $ Lit ")"]
+        [NewLine' $ NewLine [Lit "    , "], Other' SpecAlias]
         ( SubSpec
-            [Other' $ Lit "(", Other' SpecAlias]
+            [Other' $ Lit " (", Other' SpecAlias]
             [Other' $ Lit ")"]
             [Other' $ Lit ", ", Other' SpecAlias]
             [Other' $ Lit " (..)"]
@@ -386,13 +390,19 @@ case11Options =
     , _padModifier = GroupPad
     , _formatIfSpecsEmpty = [ NewLine' $ NewLine [], Other' $ Lit "    ()"]
     , _shortSpec = Spec
-        [ NewLine' $ NewLine [], Other' $ Lit "    (", Other' SpecAlias]
-        [ Other' $ Lit ")"]
-        [ Other' $ Lit ", ", NewLine' $ NewLineAsFarAsPossible [Lit "    "], Other' SpecAlias]
+        [NewLine' $ NewLine [], Other' $ Lit "    (", Other' SpecAlias]
+        [Other' $ Lit ")"]
+        [ Other' $ Lit ", "
+        , NewLine' $ NewLineAsFarAsPossible [Lit "    "]
+        , Other' SpecAlias
+        ]
         ( SubSpec
-            [Other' $ Lit "(", Other' SpecAlias]
+            [Other' $ Lit " (", Other' SpecAlias]
             [Other' $ Lit ")"]
-            [Other' $ Lit ", ", NewLine' $ NewLineAsFarAsPossible [Lit "    "], Other' SpecAlias]
+            [ Other' $ Lit ", "
+            , NewLine' $ NewLineAsFarAsPossible [Lit "    "]
+            , Other' SpecAlias
+            ]
             [Other' $ Lit " (..)"]
         )
     }
@@ -432,13 +442,19 @@ case12Options =
     , _padModifier = GroupPad
     , _formatIfSpecsEmpty = [ NewLine' $ NewLine [], Other' $ Lit "    ()"]
     , _shortSpec = Spec
-        [ NewLine' $ NewLine [], Other' $ Lit "  (", Other' SpecAlias]
-        [ Other' $ Lit ")"]
-        [ Other' $ Lit ", ", NewLine' $ NewLineAsFarAsPossible [Lit "    "], Other' SpecAlias]
+        [NewLine' $ NewLine [], Other' $ Lit "  (", Other' SpecAlias]
+        [Other' $ Lit ")"]
+        [ Other' $ Lit ", "
+        , NewLine' $ NewLineAsFarAsPossible [Lit "    "]
+        , Other' SpecAlias
+        ]
         ( SubSpec
-            [Other' $ Lit "(", Other' SpecAlias]
+            [Other' $ Lit " (", Other' SpecAlias]
             [Other' $ Lit ")"]
-            [Other' $ Lit ", ", NewLine' $ NewLineAsFarAsPossible [Lit "    "], Other' SpecAlias]
+            [ Other' $ Lit ", "
+            , NewLine' $ NewLineAsFarAsPossible [Lit "    "]
+            , Other' SpecAlias
+            ]
             [Other' $ Lit " (..)"]
         )
     }
@@ -465,13 +481,19 @@ case13Options =
     , _padModifier = NoPad
     , _formatIfSpecsEmpty = [ NewLine' $ NewLine [], Other' $ Lit "    ()"]
     , _shortSpec = Spec
-        [ NewLine' $ NewLine [], Other' $ Lit "    (", Other' SpecAlias]
-        [ Other' $ Lit ")"]
-        [ Other' $ Lit ", ", NewLine' $ NewLineAsFarAsPossible [Lit "    "], Other' SpecAlias]
+        [NewLine' $ NewLine [], Other' $ Lit "    (", Other' SpecAlias]
+        [Other' $ Lit ")"]
+        [ Other' $ Lit ", "
+        , NewLine' $ NewLineAsFarAsPossible [Lit "    "]
+        , Other' SpecAlias
+        ]
         ( SubSpec
             [Other' $ Lit "(", Other' SpecAlias]
             [Other' $ Lit ")"]
-            [Other' $ Lit ", ", NewLine' $ NewLineAsFarAsPossible [Lit "    "], Other' SpecAlias]
+            [ Other' $ Lit ", "
+            , NewLine' $ NewLineAsFarAsPossible [Lit "    "]
+            , Other' SpecAlias
+            ]
             [Other' $ Lit " (..)"]
         )
     }
@@ -516,9 +538,9 @@ case15Options =
     { _padQualified = NoPad
     , _padModifier = NoPad
     , _shortSpec = Spec
-        [ Other' $ Lit " (", Other' SpecAlias]
-        [ Other' $ Lit ")"]
-        [ Other' $ Lit ", ", Other' SpecAlias]
+        [Other' $ Lit " (", Other' SpecAlias]
+        [Other' $ Lit ")"]
+        [Other' $ Lit ", ", Other' SpecAlias]
         ( SubSpec
             [Other' $ Lit " (", Other' SpecAlias]
             [Other' $ Lit ")"]
@@ -526,14 +548,17 @@ case15Options =
             [Other' $ Lit " (..)"]
         )
     , _longSpec = Spec
-        [ NewLine' $ NewLine [Lit "    "], Other' $ Lit "( ", Other' SpecAlias]
-        [ NewLine' $ NewLine [Lit "    "], Other' $ Lit ")"]
-        [ NewLine' $ NewLine [Lit "    "], Other' $ Lit ", ", Other' SpecAlias]
+        [NewLine' $ NewLine [Lit "    "], Other' $ Lit "( ", Other' SpecAlias]
+        [NewLine' $ NewLine [Lit "    "], Other' $ Lit ")"]
+        [NewLine' $ NewLine [Lit "    "], Other' $ Lit ", ", Other' SpecAlias]
         ( SubSpec
-            [ Other' $ Lit " (", Other' SpecAlias]
-            [ Other' $ Lit ")"]
-            [ NewLine' $ NewLine [Lit "    "], Other' $ Lit ", ", Other' SpecAlias]
-            [ Other' $ Lit " (..)"]
+            [Other' $ Lit " (", Other' SpecAlias]
+            [Other' $ Lit ")"]
+            [ NewLine' $ NewLine [Lit "    "]
+            , Other' $ Lit ", "
+            , Other' SpecAlias
+            ]
+            [Other' $ Lit " (..)"]
         )
     }
 
@@ -568,6 +593,16 @@ case16Options =
     in Options 80 style
     { _padQualified = NoPad
     , _padModifier = NoPad
+    , _shortSpec = Spec
+        [Other' $ Lit " (", Other' SpecAlias]
+        [Other' $ Lit ")"]
+        [Other' $ Lit ", ", Other' SpecAlias]
+        ( SubSpec
+            [Other' $ Lit "(", Other' SpecAlias]
+            [Other' $ Lit ")"]
+            [Other' $ Lit ", ", Other' SpecAlias]
+            [Other' $ Lit " (..)"]
+        )
     }
 
 case16 :: Assertion
@@ -600,9 +635,9 @@ case17Options =
     { _padQualified = NoPad
     , _padModifier = NoPad
     , _shortSpec = Spec
-        [ Other' $ Lit " (", Other' SpecAlias]
-        [ Other' $ Lit ")"]
-        [ Other' $ Lit ", ", Other' SpecAlias]
+        [Other' $ Lit " (", Other' SpecAlias]
+        [Other' $ Lit ")"]
+        [Other' $ Lit ", ", Other' SpecAlias]
         ( SubSpec
             [Other' $ Lit " (", Other' SpecAlias]
             [Other' $ Lit ")"]
@@ -635,9 +670,12 @@ case18Options =
     { _padQualified = NoPad
     , _padModifier = NoPad
     , _shortSpec = Spec
-        [ NewLine' $ NewLineAsFarAsPossible [Lit "   "], Other' $ Lit " (", Other' SpecAlias]
-        [ Other' $ Lit ")"]
-        [ Other' $ Lit ", ", Other' SpecAlias]
+        [ NewLine' $ NewLineAsFarAsPossible [Lit "   "]
+        , Other' $ Lit " ("
+        , Other' SpecAlias
+        ]
+        [Other' $ Lit ")"]
+        [Other' $ Lit ", ", Other' SpecAlias]
         ( SubSpec
             [Other' $ Lit " (", Other' SpecAlias]
             [Other' $ Lit ")"]
@@ -645,14 +683,17 @@ case18Options =
             [Other' $ Lit " (..)"]
         )
     , _longSpec = Spec
-        [ NewLine' $ NewLine [Lit "    "], Other' $ Lit "( ", Other' SpecAlias]
-        [ NewLine' $ NewLine [Lit "    "], Other' $ Lit ")"]
-        [ NewLine' $ NewLine [Lit "    "], Other' $ Lit ", ", Other' SpecAlias]
+        [NewLine' $ NewLine [Lit "    "], Other' $ Lit "( ", Other' SpecAlias]
+        [NewLine' $ NewLine [Lit "    "], Other' $ Lit ")"]
+        [NewLine' $ NewLine [Lit "    "], Other' $ Lit ", ", Other' SpecAlias]
         ( SubSpec
-            [ Other' $ Lit "(", Other' SpecAlias]
-            [ Other' $ Lit ")"]
-            [ Other' $ Lit ", ", NewLine' (NewLineAsFarAsPossible [PadToAlias, Lit "  "]), Other' SpecAlias]
-            [ Other' $ Lit " (..)"]
+            [Other' $ Lit "(", Other' SpecAlias]
+            [Other' $ Lit ")"]
+            [ Other' $ Lit ", "
+            , NewLine' $ NewLineAsFarAsPossible [PadToAlias, Lit "  "]
+            , Other' SpecAlias
+            ]
+            [Other' $ Lit " (..)"]
         )
     }
 
@@ -691,10 +732,12 @@ case19Options =
     , _formatIfSpecsEmpty = [Other' $ Lit " ()"]
     , _shortSpec = Spec
         [ NewLine' $ NewLine [Lit "                 "]
-        , Other' $ Lit "(", Other' SpecAlias
+        , Other' $ Lit "("
+        , Other' SpecAlias
         ]
-        [ Other' $ Lit ")"]
-        [ Other' $ Lit ", ", NewLine' $ NewLineAsFarAsPossible [Lit "                 "]
+        [Other' $ Lit ")"]
+        [ Other' $ Lit ", "
+        , NewLine' $ NewLineAsFarAsPossible [Lit "                 "]
         , Other' SpecAlias
         ]
         ( SubSpec
@@ -750,10 +793,12 @@ case19COptions =
     , _formatIfSpecsEmpty = [Other' $ Lit " ()"]
     , _shortSpec = Spec
         [ NewLine' $ NewLine [Lit "       "]
-        , Other' $ Lit "(", Other' SpecAlias
+        , Other' $ Lit "("
+        , Other' SpecAlias
         ]
-        [ Other' $ Lit ")"]
-        [ Other' $ Lit ", ", NewLine' $ NewLineAsFarAsPossible [Lit "       "]
+        [Other' $ Lit ")"]
+        [ Other' $ Lit ", "
+        , NewLine' $ NewLineAsFarAsPossible [Lit "       "]
         , Other' SpecAlias
         ]
         ( SubSpec
@@ -764,10 +809,12 @@ case19COptions =
         )
     , _longSpec = Spec
         [ NewLine' $ NewLine [Lit "       "]
-        , Other' $ Lit "(", Other' SpecAlias
+        , Other' $ Lit "("
+        , Other' SpecAlias
         ]
-        [ Other' $ Lit ")"]
-        [ Other' $ Lit ", ", NewLine' $ NewLineAsFarAsPossible [Lit "       "]
+        [Other' $ Lit ")"]
+        [ Other' $ Lit ", "
+        , NewLine' $ NewLineAsFarAsPossible [Lit "       "]
         , Other' SpecAlias
         ]
         ( SubSpec
