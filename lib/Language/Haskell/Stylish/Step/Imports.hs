@@ -11,11 +11,6 @@ module Language.Haskell.Stylish.Step.Imports
     , SubSpec (..)
     , NewLine (..)
     , defaultOptions
-    --, ImportAlign (..)
-    --, ListAlign (..)
-    --, LongListAlign (..)
-    --, EmptyListAlign (..)
-    --, ListPadding (..)
     , step
     ) where
 
@@ -210,7 +205,7 @@ prettyMy GroupStats{..} columns options@Options{..} imps =
   where
     prettyPrintWhole :: Options -> H.ImportDecl LineBlock -> [String]
     prettyPrintWhole Options{..} imp@H.ImportDecl{..} =
-        removeSpaces. lines . expandBreaks $ case importSpecs of
+        removeSpaces. lines . expandBreaks columns $ case importSpecs of
             Nothing -> strToPieceResult prettyPrintBase
             Just (H.ImportSpecList _ _ xs) ->
                 if isOverflowing $ short xs
@@ -245,7 +240,8 @@ prettyMy GroupStats{..} columns options@Options{..} imps =
         short xs = prettySpec xs _shortSpec base
         long xs = prettySpec xs _longSpec base
 
-        isOverflowing = any ((> columns) . length) . lines . expandBreaks
+        isOverflowing =
+            any ((> columns) . length) . lines . expandBreaks columns
 
         prettyPrintBase :: String
         prettyPrintBase =
@@ -375,45 +371,45 @@ prettyMy GroupStats{..} columns options@Options{..} imps =
 
         emptyRes = ("", Nill, "")
 
-        expandBreaks :: NEL.NonEmpty PieceResult -> String
-        expandBreaks ((str, br, strAfterBr) NEL.:| xs) = fst $
-            case br of
-                Break -> expandBreaks' xs $ break p
-                BreakAFAP -> if willNextOverflow p xs
-                    then expandBreaks' xs $ break  p
-                    else expandBreaks' xs p
-                Nill -> expandBreaks' xs p
-          where
-            len = length str
-            p = (str, len)
-            break = addStr strAfterBr . addNewLine
+expandBreaks :: Int -> NEL.NonEmpty PieceResult -> String
+expandBreaks columns ((str, br, strAfterBr) NEL.:| xs) =
+    fst $ m xs p br strAfterBr
+  where
+    len = length str
+    p = (str, len)
 
-        expandBreaks' :: [PieceResult] -> (String, Int) -> (String, Int)
-        expandBreaks' [] r = r
-        expandBreaks' ((str, br, strAfterBr) : xs) r =
-            case br of
-                Break -> expandBreaks' xs . break $ current
-                BreakAFAP -> if willNextOverflow current xs
-                    then expandBreaks' xs $ break current
-                    else expandBreaks' xs current
-                Nill -> expandBreaks' xs current
-          where
-            break = addStr strAfterBr . addNewLine
-            current = addStr str r
+    expandBreaks' :: [PieceResult] -> (String, Int) -> (String, Int)
+    expandBreaks' [] r = r
+    expandBreaks' ((str', br', strAfterBr') : xs') r =
+        m xs' current br' strAfterBr'
+       where
+         current = addStr str' r
 
-        addNewLine :: (String, Int) -> (String, Int)
-        addNewLine (str, _) = (str <> newLine, 0)
+    m bs a brk strAB = case brk of
+        Break -> expandBreaks' bs $ break a
+        BreakAFAP -> if willNextOverflow columns a bs
+            then expandBreaks' bs $ break  a
+            else expandBreaks' bs a
+        Nill -> expandBreaks' bs a
+      where
+        break = addStr strAB . addNewLine
 
-        addStr str (str', len) = (str' <> str, len + length str)
-        getLen (_, len) = len
 
-        willNextOverflow _ [] = False
-        willNextOverflow r ((str, _, _) : _) =
-            if getLen (addStr str r) > columns + 1
-                then True
-                else False
 
-        newLine = "\n"
+willNextOverflow :: Int -> (String, Int) -> [PieceResult] -> Bool
+willNextOverflow _ _ [] = False
+willNextOverflow columns r ((str', _, _) : _) =
+    if getLen (addStr str' r) > columns + 1
+        then True
+        else False
+  where
+    getLen (_, len) = len
+
+addNewLine :: (String, Int) -> (String, Int)
+addNewLine (str, _) = (str <> "\n", 0)
+
+addStr :: String -> (String, Int) -> (String, Int)
+addStr str (str', len) = (str' <> str, len + length str)
 
 -- }}} Printing pieces --------------------------------------------------------
 
