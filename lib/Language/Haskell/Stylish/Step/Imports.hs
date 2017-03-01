@@ -12,6 +12,12 @@ module Language.Haskell.Stylish.Step.Imports
     , NewLine (..)
     , defaultOptions
     , step
+
+    -- * Exported fot tests
+    , prettyPieces
+    , prettyPiece
+    , prettyOthers
+    , prettyOther
     ) where
 
 
@@ -228,11 +234,6 @@ prettyMy GroupStats{..} columns options@Options{..} imps =
         groupModuleNamePadSize =
             foldl' max 0 $ fmap afterModuleName gropuStats
 
-        importModuleNamePadSize = afterModuleName computeImportStats
-        importModulePadModulePadSize = afterModulePad computeImportStats
-        importAliasPadSize = afterAlias computeImportStats
-        importBasePadSize = afterBase computeImportStats
-
         computeImportStats =
             snd $ prettyOnlyBase (statsPadQualified globalStats)
                 options magic imp
@@ -260,28 +261,29 @@ prettyMy GroupStats{..} columns options@Options{..} imps =
             -> NEL.NonEmpty PieceResult
             -> NEL.NonEmpty PieceResult
         prettySpec [] Spec{..} r =
-            NEL.reverse $ prettyPieces "" _formatIfSpecsEmpty r
+            NEL.reverse $ prettyPieces computeImportStats options "" _formatIfSpecsEmpty r
         prettySpec (x : xs) spec@Spec{..} r = NEL.reverse
             . prettySpec' xs spec $ case specToEither x of
                 Right specStr ->
-                    prettyPieces specStr specsBefore r
+                    prettyPieces computeImportStats options specStr specsBefore r
                 Left (specStr, sscs) ->
                     prettySubSpec sscs subSpecs
-                    $ prettyPieces specStr specsBefore r
+                    $ prettyPieces computeImportStats options specStr specsBefore r
 
         prettySpec'
             :: [H.ImportSpec a]
             -> Spec
             -> NEL.NonEmpty PieceResult
             -> NEL.NonEmpty PieceResult
-        prettySpec' [] Spec{..} r = prettyPieces "" specsAfter r
+        prettySpec' [] Spec{..} r =
+            prettyPieces computeImportStats options "" specsAfter r
         prettySpec' (x : xs) spec@Spec{..} r = prettySpec' xs spec $
             case specToEither x of
                 Right specStr ->
-                    prettyPieces specStr specsOther r
+                    prettyPieces computeImportStats options specStr specsOther r
                 Left (specStr, sscs) ->
                     prettySubSpec sscs subSpecs
-                    $ prettyPieces specStr specsOther r
+                    $ prettyPieces computeImportStats options specStr specsOther r
 
 -- }}} prettying short ---------------------------------------------------------
 -- {{{ prettying sub spec ------------------------------------------------------
@@ -292,9 +294,10 @@ prettyMy GroupStats{..} columns options@Options{..} imps =
             -> NEL.NonEmpty PieceResult
             -> NEL.NonEmpty PieceResult
         prettySubSpec [] SubSpec{..} r =
-            prettyPieces "" subSpecsAll r
+            prettyPieces computeImportStats options "" subSpecsAll r
         prettySubSpec (x : xs) subSpec@SubSpec{..} r =
-            prettySubSpec' xs subSpec $ prettyPieces specStr subSpecsBefore r
+            prettySubSpec' xs subSpec
+                $ prettyPieces computeImportStats options specStr subSpecsBefore r
           where
             specStr = H.prettyPrint x
 
@@ -304,72 +307,101 @@ prettyMy GroupStats{..} columns options@Options{..} imps =
             -> NEL.NonEmpty PieceResult
             -> NEL.NonEmpty PieceResult
         prettySubSpec' [] SubSpec{..} r =
-            prettyPieces "" subSpecsAfter r
+            prettyPieces computeImportStats options "" subSpecsAfter r
         prettySubSpec' (x : xs) subSpec@SubSpec{..} r =
-            prettySubSpec' xs subSpec $ prettyPieces specStr subSpecsOther r
+            prettySubSpec' xs subSpec
+                $ prettyPieces computeImportStats options specStr subSpecsOther
+                    r
           where
             specStr = H.prettyPrint x
 
-        prettyPieces
-            :: String
-            -- ^ String which will replace Spec
-            -> [Piece]
-            -- ^ Pieces which should be prettyed
-            -> NEL.NonEmpty PieceResult
-            -- ^ Previsou steps
-            -> NEL.NonEmpty PieceResult
-        prettyPieces spec ps r = foldl' (flip $ prettyPiece spec) r ps
+-- }}} prettying sub spec -----------------------------------------------------
+-- {{{ prettying pieces -------------------------------------------------------
 
--- }}} prettying sub spec ------------------------------------------------------
--- {{{ prettying pieces --------------------------------------------------------
+prettyPieces
+    :: Stats
+    -> Options
+    -> String
+    -- ^ String which will replace Spec
+    -> [Piece]
+    -- ^ Pieces which should be pretty-printed
+    -> NEL.NonEmpty PieceResult
+    -- ^ Previsou steps
+    -> NEL.NonEmpty PieceResult
+prettyPieces stats options spec ps r =
+    foldl' (flip $ prettyPiece stats options spec) r ps
 
-        prettyPiece
-            :: String
-            -- ^ String which will replace Spec
-            -> Piece
-            -- ^ Previous pretty prettyed string
-            -> NEL.NonEmpty PieceResult
-            -> NEL.NonEmpty PieceResult
-        prettyPiece spec (Other' o) r =
-            prettyOther spec addString o r
-        prettyPiece spec (NewLine' nl) r = case nl of
-            NewLine os -> emptyRes NEL.<| (onHead (setBreak Break)
-                $ prettyOthers spec addStringAfterBreak os r)
-            NewLineAsFarAsPossible os -> emptyRes NEL.<|
-                (onHead (setBreak BreakAFAP)
-                $ prettyOthers spec addStringAfterBreak os r)
+
+prettyPiece
+    :: Stats
+    -> Options
+    -> String
+    -- ^ String which will replace Spec
+    -> Piece
+    -- ^ Previous pretty prettyed string
+    -> NEL.NonEmpty PieceResult
+    -> NEL.NonEmpty PieceResult
+prettyPiece stats options spec (Other' o) r =
+    prettyOther stats options spec addString o r
+prettyPiece stats options spec (NewLine' nl) r = case nl of
+    NewLine os -> emptyRes NEL.<|
+        (onHead (setBreak Break) $ prettyOthers
+            stats options spec addStringAfterBreak os r)
+    NewLineAsFarAsPossible os -> emptyRes NEL.<|
+        (onHead (setBreak BreakAFAP) $ prettyOthers
+            stats options spec addStringAfterBreak os r)
+  where
+    emptyRes = ("", Nill, "")
 
 -- }}} Printing pieces --------------------------------------------------------
--- {{{ Printing pieces --------------------------------------------------------
+-- {{{ Printing Others --------------------------------------------------------
 
-        prettyOthers
-            :: String
-            -> (String -> PieceResult -> PieceResult)
-            -> [Other]
-            -- ^ Previous pretty prettyed string
-            -> NEL.NonEmpty PieceResult
-            -> NEL.NonEmpty PieceResult
-        prettyOthers spec f os r = foldl' (flip $ prettyOther spec f) r os
+prettyOthers
+    :: Stats
+    -> Options
+    -> String
+    -> (String -> PieceResult -> PieceResult)
+    -> [Other]
+    -- ^ Previous pretty prettyed string
+    -> NEL.NonEmpty PieceResult
+    -> NEL.NonEmpty PieceResult
+prettyOthers stats options spec f os r =
+    foldl' (flip $ prettyOther stats options spec f) r os
 
-        prettyOther
-            :: String
-            -> (String -> PieceResult -> PieceResult)
-            -> Other
-            -- ^ Previous pretty prettyed string
-            -> NEL.NonEmpty PieceResult
-            -> NEL.NonEmpty PieceResult
-        prettyOther _ fun (Lit str) r = onHead (fun str) r
-        prettyOther spec fun (SpecAlias) r = onHead (fun spec) r
-        prettyOther _ fun (PadToModulName) r =
-            onHead (fun (replicate importModuleNamePadSize ' ')) r
-        prettyOther _ fun (PadToModulePad) r =
-            onHead (fun (replicate importModulePadModulePadSize ' ')) r
-        prettyOther _ fun (PadToAlias) r =
-            onHead (fun (replicate importAliasPadSize ' ')) r
-        prettyOther _ fun (PadToBase) r =
-            onHead (fun (replicate importBasePadSize ' ')) r
+prettyOther
+    :: Stats
+    -> Options
+    -> String
+    -> (String -> PieceResult -> PieceResult)
+    -> Other
+    -- ^ Previous pretty prettyed string
+    -> NEL.NonEmpty PieceResult
+    -> NEL.NonEmpty PieceResult
+prettyOther importStats Options{..} spec fun others r = prettyOther' others
+  where
+    importModuleNamePadSize = afterModuleName importStats
+    importModulePadModulePadSize = afterModulePad importStats
+    importAliasPadSize = afterAlias importStats
+    importBasePadSize = afterBase importStats
 
-        emptyRes = ("", Nill, "")
+    prettyOther'
+        :: Other
+        -- ^ Previous pretty prettyed string
+        -> NEL.NonEmpty PieceResult
+    prettyOther' (Lit str) = onHead (fun str) r
+    prettyOther' (SpecAlias) = onHead (fun spec) r
+    prettyOther' (PadToModulName) =
+        onHead (fun (replicate importModuleNamePadSize ' ')) r
+    prettyOther' (PadToModulePad) =
+        onHead (fun (replicate importModulePadModulePadSize ' ')) r
+    prettyOther' (PadToAlias) =
+        onHead (fun (replicate importAliasPadSize ' ')) r
+    prettyOther' (PadToBase) =
+        onHead (fun (replicate importBasePadSize ' ')) r
+
+-- }}} Printing Others --------------------------------------------------------
+-- {{{ Expand breaks ----------------------------------------------------------
+
 
 expandBreaks :: Int -> NEL.NonEmpty PieceResult -> String
 expandBreaks columns ((str, br, strAfterBr) NEL.:| xs) =
@@ -411,7 +443,7 @@ addNewLine (str, _) = (str <> "\n", 0)
 addStr :: String -> (String, Int) -> (String, Int)
 addStr str (str', len) = (str' <> str, len + length str)
 
--- }}} Printing pieces --------------------------------------------------------
+-- }}} Expand breaks ----------------------------------------------------------
 
 prettyOnlyBase
     :: Bool
